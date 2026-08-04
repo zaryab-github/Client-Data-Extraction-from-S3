@@ -1,0 +1,55 @@
+# ─── Secrets & environment (NEVER commit) ───────────────
+.env
+.env.*
+!.env.example
+!.env.local.example
+backend/.env
+frontend/.env.local
+*.pem
+*.key
+secrets/
+
+# ─── Local report storage (generated artifacts) ─────────
+storage/
+backend/storage/
+*.zip
+!deploy/**/*.zip
+
+# ─── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ─── Node / Next.js ─────────────────────────────────────
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Databases (local dev) ──────────────────────────────
+*.sqlite3
+*.db
+
+# ─── Logs ───────────────────────────────────────────────
+logs/
+*.log
+
+# ─── OS / editor ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
