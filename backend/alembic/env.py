@@ -2,6 +2,10 @@
 
 Reads the database URL from application settings (.env), and uses the app's
 declarative metadata (all models) as the autogenerate target.
+
+Note: the URL is passed straight to SQLAlchemy (never through Alembic's
+ConfigParser), so passwords containing '%' (e.g. URL-encoded '%40' for '@') do
+not trigger interpolation errors.
 """
 
 from __future__ import annotations
@@ -9,7 +13,7 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, pool
 
 from app.config import settings
 from app.db.base import Base
@@ -18,7 +22,6 @@ from app.db.base import Base
 import app.db.models  # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -39,10 +42,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+    # Build the engine directly from settings — bypasses ConfigParser entirely.
+    connectable = create_engine(
+        settings.DATABASE_URL, poolclass=pool.NullPool, future=True
     )
     with connectable.connect() as connection:
         context.configure(
