@@ -1,0 +1,8 @@
+Alembic migrations.
+
+The database URL is taken from settings.DATABASE_URL (.env), not from alembic.ini.
+
+Common commands (run from the backend/ directory or inside the api container):
+    alembic upgrade head                      # apply all migrations
+    alembic revision --autogenerate -m "msg"  # create a new migration from models
+    alembic downgrade -1                       # revert the last migration

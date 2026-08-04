@@ -1,15 +1,17 @@
 """Aggregate API router.
 
-Phase 1 mounts only the system (health/ready) routes. Feature routers
-(auth, shortcodes, jobs, reports, history, admin, internal) are added in later
-phases under the versioned prefix.
+Mounts system (health/ready), auth, and shortcodes routes under the versioned
+prefix. Feature routers (jobs, reports, history, admin, internal) are added in
+later phases.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.routes import health
+from app.api.routes import auth, health, shortcodes
 
 api_router = APIRouter()
 api_router.include_router(health.router)
+api_router.include_router(auth.router)
+api_router.include_router(shortcodes.router)

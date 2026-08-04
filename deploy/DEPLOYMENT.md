@@ -194,12 +194,27 @@ docker compose -f deploy/docker-compose.prod.yml ps        # all services health
 This builds the backend + frontend images and starts: `db`, `redis`, `api`,
 `worker`, `beat`, `frontend`, `nginx`.
 
-> **Phase 2+ (once migrations exist):** run DB migrations before serving:
+> **Database migrations (Phase 2+):** the `api` service runs `alembic upgrade head`
+> automatically on start, so tables are created for you. To run them manually:
 > ```bash
 > docker compose -f deploy/docker-compose.prod.yml exec api alembic upgrade head
 > ```
-> or enable the `alembic upgrade head &&` prefix already shown (commented) in the
-> `api` service command.
+
+### 5.1 Seed the first admin + roles (Phase 2)
+
+Set these in `backend/.env` first:
+```ini
+FIRST_ADMIN_EMAIL=admin@yourcompany.com
+FIRST_ADMIN_PASSWORD=<a strong password>
+SEED_DEMO_DATA=true      # optional: also creates demo shortcodes 8990, 1234
+```
+Then run the seed (idempotent — safe to re-run):
+```bash
+docker compose -f deploy/docker-compose.prod.yml up -d --force-recreate api   # pick up new env
+docker compose -f deploy/docker-compose.prod.yml exec api python -m app.scripts.seed
+```
+This creates the `admin`/`analyst`/`viewer` roles with permissions and your first
+admin user. You can now sign in at `http://<SERVER_IP>` with those credentials.
 
 ---
 

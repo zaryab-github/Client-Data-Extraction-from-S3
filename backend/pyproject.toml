@@ -10,10 +10,13 @@ dependencies = [
     "uvicorn[standard]>=0.29",
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
+    "email-validator>=2.1",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "redis>=5.0",
     "celery>=5.3",
+    "passlib[argon2]>=1.7.4",
+    "pyjwt>=2.8",
 ]
 
 [project.optional-dependencies]

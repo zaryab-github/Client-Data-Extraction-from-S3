@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT_ATTEMPTS: int = 5
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 300
 
+    # Refresh-token cookie. Over plain HTTP (IP deploy) COOKIE_SECURE must be False,
+    # or the browser won't send the cookie. Set True once TLS is in front.
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
+
+    # First admin + optional demo data, created by `python -m app.scripts.seed`.
+    FIRST_ADMIN_EMAIL: str = ""
+    FIRST_ADMIN_PASSWORD: str = ""
+    SEED_DEMO_DATA: bool = False
+
     # ── Database (metadata only — never client CSV data) ───
     DATABASE_URL: str = ""
 

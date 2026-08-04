@@ -1,13 +1,17 @@
-// Phase 1 landing page — a foundation placeholder, no business logic.
-// Confirms the frontend starts and reads env-driven config.
+// Landing page. Links to sign-in; the dashboard is protected.
 
+import Link from "next/link";
 import { config } from "@/lib/config";
 
 export default function HomePage() {
   return (
     <main>
       <h1>Client Data Extraction &amp; Delivery System</h1>
-      <p className="muted">Frontend foundation is running (Phase 1).</p>
+      <p className="muted">Phase 2: authentication &amp; authorization.</p>
+
+      <p style={{ marginTop: 24 }}>
+        <Link href="/login">Sign in →</Link>
+      </p>
 
       <h2>Configuration</h2>
       <ul>
@@ -21,8 +25,7 @@ export default function HomePage() {
       </ul>
 
       <p className="muted">
-        Login, dashboard, extraction, job status, history, and admin screens are
-        added in later phases.
+        Extraction, job status, history, and admin screens are added in later phases.
       </p>
     </main>
   );
