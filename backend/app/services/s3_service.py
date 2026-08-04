@@ -174,6 +174,22 @@ def check_connection(bucket: str | None = None) -> bool:
         raise S3AccessError(f"S3 HeadBucket failed for '{bucket}': {exc}") from exc
 
 
+def get_object_stream(key: str, bucket: str | None = None):
+    """Return a streaming body for an object (read-only GetObject).
+
+    The caller is responsible for reading and closing the stream. Used by the
+    extraction engine to process large files without loading them into memory.
+    """
+    bucket = bucket or settings.S3_BUCKET
+    if not bucket:
+        raise S3ConfigError("S3_BUCKET is not configured (set it in .env).")
+    try:
+        resp = get_client().get_object(Bucket=bucket, Key=key)
+        return resp["Body"]
+    except (NoCredentialsError, EndpointConnectionError, BotoCoreError, ClientError) as exc:
+        raise S3AccessError(f"GetObject failed for '{bucket}/{key}': {exc}") from exc
+
+
 def discover_files(
     date_from: date | datetime,
     date_to: date | datetime,
