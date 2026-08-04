@@ -1,0 +1,2 @@
+# TLS certificates go here (gitignored): fullchain.pem, privkey.pem.
+# Obtained via certbot — see deploy/DEPLOYMENT.md. Never commit real certs/keys.

@@ -5,9 +5,16 @@
 !.env.local.example
 backend/.env
 frontend/.env.local
+deploy/.env
 *.pem
 *.key
 secrets/
+
+# ─── TLS certificates / ACME (deploy) ───────────────────
+deploy/nginx/certs/*
+!deploy/nginx/certs/.gitkeep
+deploy/nginx/certbot-www/*
+!deploy/nginx/certbot-www/.gitkeep
 
 # ─── Local report storage (generated artifacts) ─────────
 storage/
