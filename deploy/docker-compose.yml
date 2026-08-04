@@ -1,0 +1,67 @@
+# Phase 1 foundation stack: db, redis, api, worker.
+# All configuration comes from backend/.env (nothing hardcoded here).
+# Frontend is run separately (see frontend/README or root README).
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      # These are container-local dev credentials for the bundled Postgres.
+      # The application connects using DATABASE_URL from backend/.env.
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-extraction}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ../backend
+    env_file:
+      - ../backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - report_storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  worker:
+    build:
+      context: ../backend
+    env_file:
+      - ../backend/.env
+    volumes:
+      - report_storage:/app/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    # No tasks in Phase 1; the worker starts and stays idle until later phases.
+    command: celery -A app.workers.celery_app.celery_app worker --loglevel=INFO
+
+volumes:
+  db_data:
+  report_storage:

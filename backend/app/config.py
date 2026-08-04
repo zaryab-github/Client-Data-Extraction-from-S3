@@ -1,0 +1,144 @@
+"""Application configuration.
+
+Every configurable value is loaded from the environment (``.env``). Nothing
+sensitive is hardcoded here — no secrets, credentials, URLs, IPs, AWS settings,
+S3 bucket names, database URLs, or Redis URLs.
+
+Secret/connection values default to empty strings so the module always imports;
+their presence is validated explicitly via :meth:`Settings.require` at startup,
+which fails fast with a clear message if something required is missing.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # ── App ────────────────────────────────────────────────
+    APP_ENV: str = "development"           # development | staging | production
+    APP_NAME: str = "client-data-extraction"
+    API_V1_PREFIX: str = "/api/v1"
+    BACKEND_CORS_ORIGINS: str = ""         # comma-separated; see cors_origins property
+    LOG_LEVEL: str = "INFO"
+
+    # ── Security / Auth (Phase 2 uses these; declared now, from .env only) ──
+    JWT_SECRET: str = ""
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    PASSWORD_HASH_SCHEME: str = "argon2"
+    LOGIN_RATE_LIMIT_ATTEMPTS: int = 5
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 300
+
+    # ── Database (metadata only — never client CSV data) ───
+    DATABASE_URL: str = ""
+
+    # ── Redis / Celery ─────────────────────────────────────
+    REDIS_URL: str = ""
+    CELERY_BROKER_URL: str = ""            # falls back to REDIS_URL if empty
+    CELERY_RESULT_BACKEND: str = ""        # falls back to REDIS_URL if empty
+    CELERY_TASK_SOFT_TIME_LIMIT: int = 3000
+    CELERY_TASK_TIME_LIMIT: int = 21600
+    CELERY_WORKER_CONCURRENCY: int = 4
+    CELERY_MAX_RETRIES: int = 3
+
+    # ── AWS / S3 (read-only source; Phase 4) ───────────────
+    AWS_REGION: str = ""
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
+    S3_BUCKET: str = ""
+    S3_ENDPOINT_URL: str = ""
+    S3_PREFIX: str = ""
+    S3_FILE_TEMPLATE: str = "daily-data_{yyyy}-{mm}-{dd}.csv"
+    S3_DISCOVERY_MODE: str = "list"        # list | template
+    S3_MAX_RETRIES: int = 5
+
+    # ── CSV extraction (Phase 4) ───────────────────────────
+    CSV_SHORTCODE_COLUMN: str = "source_addr"
+    CSV_DELIMITER: str = ","
+    CSV_HAS_HEADER: bool = True
+    CSV_COMPRESSION: str = "none"          # none | gzip
+    CSV_TIMESTAMP_COLUMN: str = ""
+    CSV_TIMESTAMP_FORMAT: str = ""
+    EXTRACTION_PARALLEL_FILES: bool = True
+
+    # ── Jobs / storage / retention (Phase 5-8) ─────────────
+    JOB_ID_STRATEGY: str = "ulid"          # ulid | uuid4
+    MAX_RANGE_DAYS: int = 92
+    REPORT_STORAGE_PATH: str = "./storage"
+    REPORT_RETENTION_DAYS: int = 30
+    ZIP_COMPRESSION_LEVEL: int = 6
+
+    # ── Email (Phase 7) ────────────────────────────────────
+    EMAIL_PROVIDER: str = "ses"            # ses | smtp
+    EMAIL_FROM_ADDRESS: str = ""
+    EMAIL_MAX_ATTACHMENT_BYTES: int = 10_485_760
+    DOWNLOAD_LINK_EXPIRE_MINUTES: int = 60
+
+    # ── n8n integration (external; Phase 10) ───────────────
+    N8N_BASE_URL: str = ""
+    N8N_SERVICE_TOKEN: str = ""
+    N8N_WEBHOOK_URL: str = ""
+    N8N_WEBHOOK_SECRET: str = ""
+
+    # ── Derived / helpers ──────────────────────────────────
+    @property
+    def cors_origins(self) -> list[str]:
+        """Parse the comma-separated CORS origins into a list."""
+        return [o.strip() for o in self.BACKEND_CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def celery_broker(self) -> str:
+        return self.CELERY_BROKER_URL or self.REDIS_URL
+
+    @property
+    def celery_backend(self) -> str:
+        return self.CELERY_RESULT_BACKEND or self.REDIS_URL
+
+    @property
+    def is_production(self) -> bool:
+        return self.APP_ENV.lower() == "production"
+
+    def require(self) -> None:
+        """Fail fast if a required configuration value is missing.
+
+        Called at application startup. Keeping validation here (rather than at
+        import time) lets tooling and tests import ``Settings`` freely.
+        """
+        missing: list[str] = []
+        required = {
+            "JWT_SECRET": self.JWT_SECRET,
+            "DATABASE_URL": self.DATABASE_URL,
+            "REDIS_URL": self.REDIS_URL,
+        }
+        for name, value in required.items():
+            if not value:
+                missing.append(name)
+        if not self.celery_broker:
+            missing.append("CELERY_BROKER_URL (or REDIS_URL)")
+        if missing:
+            raise RuntimeError(
+                "Missing required environment configuration: "
+                + ", ".join(missing)
+                + ". Set them in your .env (see backend/.env.example)."
+            )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return a cached Settings instance."""
+    return Settings()
+
+
+# Convenient module-level accessor.
+settings = get_settings()
