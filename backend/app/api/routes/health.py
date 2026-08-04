@@ -16,6 +16,7 @@ from app import __version__
 from app.config import settings
 from app.core import redis as redis_layer
 from app.db import session as db_layer
+from app.services import s3_service
 
 router = APIRouter(tags=["system"])
 
@@ -45,6 +46,18 @@ def ready() -> JSONResponse:
     except Exception as exc:  # noqa: BLE001
         checks["redis"] = f"error: {type(exc).__name__}"
         healthy = False
+
+    # S3 is only checked once it is configured (so an unconfigured Phase 1/2
+    # deployment still reports ready).
+    if settings.S3_BUCKET:
+        try:
+            s3_service.check_connection()
+            checks["s3"] = "ok"
+        except Exception as exc:  # noqa: BLE001
+            checks["s3"] = f"error: {type(exc).__name__}"
+            healthy = False
+    else:
+        checks["s3"] = "not_configured"
 
     status_code = 200 if healthy else 503
     return JSONResponse(
