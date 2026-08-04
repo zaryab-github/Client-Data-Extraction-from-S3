@@ -334,6 +334,7 @@ S3 source (read-only).
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `502 Bad Gateway` from nginx | api/frontend not up yet or crashed | `docker compose ... ps` / `logs api` |
+| `502` even though `api` is Up | nginx cached the old container IP after a rebuild | `docker compose ... restart nginx` (the resolver-based config avoids this going forward) |
 | `/api/v1/ready` → `redis error` | Redis not reachable | check `REDIS_URL` = `redis://redis:6379/0`; `logs redis` |
 | `/api/v1/ready` → `database error` | Wrong `DATABASE_URL` / creds mismatch | ensure `backend/.env` matches `deploy/.env`, host `db` |
 | api exits: "Missing required environment configuration" | `JWT_SECRET`/`DATABASE_URL`/`REDIS_URL` blank | fill `backend/.env` |
