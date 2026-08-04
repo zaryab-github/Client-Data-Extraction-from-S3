@@ -83,13 +83,19 @@ def _build_client():
             retries={"max_attempts": settings.S3_MAX_RETRIES, "mode": "standard"}
         ),
     }
-    if settings.S3_ENDPOINT_URL:
-        kwargs["endpoint_url"] = settings.S3_ENDPOINT_URL
-    # Explicit keys are optional — if absent, boto3 uses the default chain
-    # (e.g. an attached IAM role).
-    if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
-        kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
-        kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+    # Only use an endpoint override if it is an actual URL (guards against a
+    # stray value such as a leftover inline comment in .env).
+    endpoint = (settings.S3_ENDPOINT_URL or "").strip()
+    if endpoint.startswith(("http://", "https://")):
+        kwargs["endpoint_url"] = endpoint
+
+    # Explicit keys are optional — if absent (or clearly not a real value), boto3
+    # uses the default chain (e.g. an attached IAM role).
+    access_key = (settings.AWS_ACCESS_KEY_ID or "").strip()
+    secret_key = (settings.AWS_SECRET_ACCESS_KEY or "").strip()
+    if access_key and secret_key and not access_key.startswith("#"):
+        kwargs["aws_access_key_id"] = access_key
+        kwargs["aws_secret_access_key"] = secret_key
     return boto3.client("s3", **kwargs)
 
 
