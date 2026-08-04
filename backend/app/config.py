@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     EXTRACTION_PARALLEL_FILES: bool = True
 
     # ── Jobs / storage / retention (Phase 5-8) ─────────────
-    JOB_ID_STRATEGY: str = "ulid"          # ulid | uuid4
+    JOB_ID_STRATEGY: str = "ext_seq"       # ext_seq (EXT-YYYYMMDD-NNNNNN) | uuid4
     MAX_RANGE_DAYS: int = 92
     REPORT_STORAGE_PATH: str = "./storage"
     REPORT_RETENTION_DAYS: int = 30
