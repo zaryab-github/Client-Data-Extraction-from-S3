@@ -103,8 +103,10 @@ Last updated: after Phase 7 (Frontend Dashboard & Admin Management).
 - Send a completed report by email. Primary provider is **Gmail via OAuth2** (refresh
   token → access token → Gmail API); **SMTP** also supported. All config from `.env`.
 - **Small** reports (≤ `EMAIL_MAX_ATTACHMENT_BYTES`) are sent as a **ZIP attachment**;
-  **large** reports as a **short-lived secure download link** (reuses the signed
-  download token).
+  **large** reports are **uploaded to Google Drive**, shared (anyone-with-link, read),
+  and the **Drive link** is emailed — so external recipients (no app/network access)
+  can download. (Set `EMAIL_MAX_ATTACHMENT_BYTES=0` to send everything via Drive.)
+  Requires the OAuth token to include the `drive.file` scope.
 - Runs on the Celery `email` path; delivery is tracked (`email_deliveries`: recipient,
   method, status PENDING/SENT/FAILED, error, timestamps) and audit-logged.
 - Recipient defaults to the requester. UI: **Email report** button on the job page +

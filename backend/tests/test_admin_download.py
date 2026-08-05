@@ -213,6 +213,31 @@ def test_email_report_success(env, monkeypatch):
 
 
 @mock_aws
+def test_email_large_report_uses_drive_link(env, monkeypatch):
+    _seed_s3()
+    monkeypatch.setattr(settings, "EMAIL_ENABLED", True)
+    monkeypatch.setattr(settings, "EMAIL_MAX_ATTACHMENT_BYTES", 0)  # force the link path
+    drive_called = {}
+
+    def fake_drive(path, name):
+        drive_called["path"] = path
+        drive_called["name"] = name
+        return "https://drive.google.com/file/d/abc123/view"
+
+    monkeypatch.setattr("app.services.email_service._drive_upload_and_share", fake_drive)
+    monkeypatch.setattr("app.services.email_service._send_via_provider", lambda msg: "gmail-msg-1")
+    admin_h = _auth(env.client, "admin@example.com")
+    analyst_h = _auth(env.client, "analyst@example.com")
+    job_id = _grant_and_job(env.client, admin_h, analyst_h)
+
+    env.client.post(f"{API}/reports/{job_id}/email", headers=analyst_h, json={})
+    emails = env.client.get(f"{API}/reports/{job_id}/emails", headers=analyst_h).json()
+    assert emails[0]["status"] == "SENT"
+    assert emails[0]["method"] == "link"          # large report → Drive link, not attachment
+    assert drive_called.get("path")               # the ZIP was uploaded to Drive
+
+
+@mock_aws
 def test_email_report_failure(env, monkeypatch):
     _seed_s3()
     monkeypatch.setattr(settings, "EMAIL_ENABLED", True)

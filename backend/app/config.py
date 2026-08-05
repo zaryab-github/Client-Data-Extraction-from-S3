@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     GMAIL_REFRESH_TOKEN: str = ""
     GMAIL_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
     GMAIL_SENDER: str = ""
+    # Optional Google Drive folder id to upload large reports into (else My Drive root).
+    # The OAuth token must include the drive.file scope for uploads to work.
+    GDRIVE_FOLDER_ID: str = ""
 
     # SMTP (EMAIL_PROVIDER=smtp)
     SMTP_HOST: str = ""
