@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Nav from "@/components/Nav";
+import StatusBadge from "@/components/StatusBadge";
 import { useAuthGuard } from "@/lib/useAuthGuard";
 import { downloadReport, getJob } from "@/lib/api-client";
 import { config } from "@/lib/config";
@@ -10,26 +11,33 @@ import type { Job } from "@/lib/auth";
 
 const TERMINAL = ["COMPLETED", "FAILED", "EXPIRED"];
 
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="stat">
+      <div className="label">{label}</div>
+      <div className="value">{value}</div>
+    </div>
+  );
+}
+
 export default function JobStatusPage() {
   const { user, loading } = useAuthGuard();
   const params = useParams();
   const jobId = String(params.jobId);
   const [job, setJob] = useState<Job | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-
     const poll = async () => {
       try {
         const j = await getJob(jobId);
         if (!active) return;
         setJob(j);
-        if (!TERMINAL.includes(j.status)) {
-          timer = setTimeout(poll, config.jobPollIntervalMs);
-        }
+        if (!TERMINAL.includes(j.status)) timer = setTimeout(poll, config.jobPollIntervalMs);
       } catch {
         if (active) setErr("Could not load this job.");
       }
@@ -42,10 +50,13 @@ export default function JobStatusPage() {
   }, [user, jobId]);
 
   async function onDownload() {
+    setDownloading(true);
     try {
       await downloadReport(jobId);
     } catch {
       setErr("Download failed (the report may have expired).");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -57,57 +68,83 @@ export default function JobStatusPage() {
     );
   }
 
+  const r = job?.report;
+  const noSourceFiles = job?.status === "COMPLETED" && r && r.source_file_count === 0;
+
   return (
     <>
       <Nav user={user} />
       <main>
-        <h1>Job {jobId}</h1>
-        {err && <p className="err">{err}</p>}
+        <div className="page-head">
+          <h1 style={{ margin: 0 }}>
+            Job <code>{jobId}</code>
+          </h1>
+          {job && <StatusBadge status={job.status} />}
+        </div>
+
+        {err && <div className="notice error">{err}</div>}
+
         {!job ? (
-          <p className="muted">Loading…</p>
+          <p className="muted">
+            <span className="spinner" /> Loading…
+          </p>
         ) : (
           <>
-            <p>
-              Status: <strong>{job.status}</strong>
-            </p>
             {!TERMINAL.includes(job.status) && (
-              <p className="muted">Processing… this page updates automatically.</p>
-            )}
-            <div className="card">
-              <ul>
-                <li>Shortcodes: {job.requested_shortcodes.join(", ")}</li>
-                <li>Range: {job.date_from} → {job.date_to}</li>
-                <li>Created: {job.created_at ?? "—"}</li>
-                <li>Finished: {job.finished_at ?? "—"}</li>
-              </ul>
-            </div>
-
-            {job.status === "FAILED" && <p className="err">Error: {job.error_message}</p>}
-
-            {job.status === "COMPLETED" && job.report && (
-              <div className="card">
-                <h2>Report</h2>
-                <ul>
-                  <li>Records extracted: {job.report.csv_row_count.toLocaleString()}</li>
-                  <li>Rows scanned: {job.report.rows_scanned.toLocaleString()}</li>
-                  <li>
-                    Files processed: {job.report.source_file_count} (missing{" "}
-                    {job.report.missing_file_count})
-                  </li>
-                  <li>ZIP size: {(job.report.zip_size_bytes / 1048576).toFixed(2)} MB</li>
-                  <li>Expires: {job.report.expires_at ?? "—"}</li>
-                </ul>
-                <button className="btn" onClick={onDownload}>
-                  Download ZIP
-                </button>{" "}
-                <button className="btn secondary" disabled title="Available in Phase 8">
-                  Email report
-                </button>
+              <div className="notice warn">
+                <span className="spinner" /> Processing in the background — this page updates
+                automatically.
               </div>
             )}
 
-            {job.status === "EXPIRED" && (
-              <p className="muted">This report has passed its retention window and was removed.</p>
+            <div className="card">
+              <h2>Request</h2>
+              <div className="grid">
+                <Stat label="Shortcodes" value={job.requested_shortcodes.join(", ")} />
+                <Stat label="From" value={job.date_from.replace("T", " ").replace("Z", "")} />
+                <Stat label="To" value={job.date_to.replace("T", " ").replace("Z", "")} />
+              </div>
+            </div>
+
+            {job.status === "FAILED" && (
+              <div className="notice error">
+                <strong>Extraction failed.</strong>
+                <br />
+                {job.error_message}
+              </div>
+            )}
+
+            {noSourceFiles && (
+              <div className="notice warn">
+                <strong>No source files found for this date range.</strong> The daily CSV files
+                for these dates don&apos;t exist in S3 ({r!.missing_file_count} missing), so nothing
+                could be extracted. Double-check the dates, or ask an admin to confirm the data
+                coverage for this period.
+              </div>
+            )}
+
+            {job.status === "COMPLETED" && r && !noSourceFiles && (
+              <div className="card">
+                <h2>Report</h2>
+                <div className="grid">
+                  <Stat label="Records extracted" value={r.csv_row_count.toLocaleString()} />
+                  <Stat label="Rows scanned" value={r.rows_scanned.toLocaleString()} />
+                  <Stat label="Files processed" value={r.source_file_count} />
+                  <Stat label="Missing days" value={r.missing_file_count} />
+                  <Stat label="ZIP size" value={`${(r.zip_size_bytes / 1048576).toFixed(2)} MB`} />
+                </div>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  Expires {r.expires_at?.slice(0, 10) ?? "—"}
+                </p>
+                <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                  <button className="btn" onClick={onDownload} disabled={downloading}>
+                    {downloading ? "Preparing…" : "⬇ Download ZIP"}
+                  </button>
+                  <button className="btn secondary" disabled title="Available in Phase 8">
+                    ✉ Email report
+                  </button>
+                </div>
+              </div>
             )}
           </>
         )}

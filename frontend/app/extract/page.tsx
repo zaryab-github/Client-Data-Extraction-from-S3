@@ -59,18 +59,23 @@ export default function ExtractPage() {
         <h1>New extraction</h1>
         <form onSubmit={onGenerate}>
           <div className="card">
-            <h2>Shortcodes</h2>
+            <h2>Shortcodes {selected.length > 0 && <span className="muted">· {selected.length} selected</span>}</h2>
             {shortcodes.length === 0 ? (
               <p className="muted">You have no authorized shortcodes. Ask an admin to grant access.</p>
             ) : (
               shortcodes.map((s) => (
-                <label key={s.id} style={{ display: "block", marginBottom: 6 }}>
+                <label
+                  key={s.id}
+                  className={`checkitem${selected.includes(s.code) ? " selected" : ""}`}
+                >
                   <input
                     type="checkbox"
                     checked={selected.includes(s.code)}
                     onChange={() => toggle(s.code)}
-                  />{" "}
-                  <strong>{s.code}</strong> — {s.name}
+                  />
+                  <span>
+                    <strong>{s.code}</strong> — {s.name}
+                  </span>
                 </label>
               ))
             )}

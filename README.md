@@ -23,15 +23,22 @@ shortcode-level permissions, and audit logging.
 
 ## Status
 
-**Design phase complete.** No implementation code yet — implementation proceeds in
-phases (see [docs/18-implementation-phases.md](docs/18-implementation-phases.md)).
+**Phases 1–7 implemented and deployed** (auth, RBAC, S3 integration, streaming
+extraction, job storage, async Celery jobs, web dashboard + admin). Phases 8–10
+(email, hardening, n8n) are planned. See
+[docs/features.md](docs/features.md) for the full feature catalogue and roadmap.
 
 ## Documentation
 
-The application working flow is documented in
-**[docs/application-workflow.md](docs/application-workflow.md)** — the single
-source-of-truth document. Additional focused documents will be added to `docs/` if
-and when needed.
+- **[docs/features.md](docs/features.md)** — what's built, what's planned, and the
+  operational CLIs (the "living" feature/roadmap doc).
+- **[docs/application-workflow.md](docs/application-workflow.md)** — end-to-end design
+  and the extraction model.
+- **[deploy/DEPLOYMENT.md](deploy/DEPLOYMENT.md)** — deploy/redeploy runbook (nginx,
+  Docker Compose, IP-based setup).
+- **[deploy/ENV_REFERENCE.md](deploy/ENV_REFERENCE.md)** — how to obtain every `.env`
+  value.
+- **[development_phases.md](development_phases.md)** — the phase-by-phase plan.
 
 ## Tech stack
 
