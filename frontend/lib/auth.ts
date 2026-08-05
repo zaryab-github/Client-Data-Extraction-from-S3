@@ -37,3 +37,58 @@ export type Shortcode = {
   name: string;
   description: string | null;
 };
+
+export type JobReport = {
+  csv_row_count: number;
+  source_file_count: number;
+  missing_file_count: number;
+  rows_scanned: number;
+  bad_timestamp_rows: number;
+  zip_size_bytes: number;
+  checksum_sha256: string | null;
+  expires_at: string | null;
+};
+
+export type Job = {
+  job_id: string;
+  status: string;
+  requested_shortcodes: string[];
+  date_from: string;
+  date_to: string;
+  created_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  error_message?: string | null;
+  report?: JobReport | null;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  is_active: boolean;
+  created_at?: string | null;
+  last_login_at?: string | null;
+};
+
+export type AdminShortcode = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  s3_prefix: string | null;
+  s3_file_template: string | null;
+  is_active: boolean;
+};
+
+export type AuditEntry = {
+  id: string;
+  user_email: string | null;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  ip_address: string | null;
+  created_at: string;
+  details: Record<string, unknown> | null;
+};

@@ -2,7 +2,17 @@
 // request and clears it on 401 so the UI can redirect to login.
 
 import { config } from "./config";
-import { clearToken, getToken, setToken, type CurrentUser, type Shortcode } from "./auth";
+import {
+  clearToken,
+  getToken,
+  setToken,
+  type AdminShortcode,
+  type AdminUser,
+  type AuditEntry,
+  type CurrentUser,
+  type Job,
+  type Shortcode,
+} from "./auth";
 
 export class ApiError extends Error {
   status: number;
@@ -85,6 +95,56 @@ export function getMe(): Promise<CurrentUser> {
 export function getShortcodes(): Promise<Shortcode[]> {
   return apiGet<Shortcode[]>("/shortcodes");
 }
+
+// ── Jobs ─────────────────────────────────────────────────
+export function createJob(shortcodes: string[], dateFrom: string, dateTo: string): Promise<Job> {
+  return apiPost<Job>("/jobs", { shortcodes, date_from: dateFrom, date_to: dateTo });
+}
+
+export function getJob(jobId: string): Promise<Job> {
+  return apiGet<Job>(`/jobs/${jobId}`);
+}
+
+export function listJobs(statusFilter?: string): Promise<Job[]> {
+  const q = statusFilter ? `?status_filter=${encodeURIComponent(statusFilter)}` : "";
+  return apiGet<Job[]>(`/jobs${q}`);
+}
+
+// Download the ZIP with the bearer token, then trigger a browser save.
+export async function downloadReport(jobId: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${config.apiBaseUrl}/reports/${jobId}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    if (res.status === 401) clearToken();
+    throw new ApiError(res.status, `Download failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${jobId}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ── Admin ────────────────────────────────────────────────
+export const admin = {
+  listUsers: () => apiGet<AdminUser[]>("/admin/users"),
+  createUser: (body: { email: string; password: string; full_name?: string; role: string }) =>
+    apiPost<AdminUser>("/admin/users", body),
+  listRoles: () => apiGet<{ name: string; permissions: string[] }[]>("/admin/roles"),
+  listShortcodes: () => apiGet<AdminShortcode[]>("/admin/shortcodes"),
+  createShortcode: (body: { code: string; name: string; description?: string; s3_prefix?: string }) =>
+    apiPost<AdminShortcode>("/admin/shortcodes", body),
+  listGrants: (userId: string) => apiGet<Shortcode[]>(`/admin/users/${userId}/shortcodes`),
+  grant: (userId: string, shortcodes: string[]) =>
+    apiPost<{ granted: string[] }>(`/admin/users/${userId}/shortcodes`, { shortcodes }),
+  listAudit: () => apiGet<AuditEntry[]>("/admin/audit-logs"),
+};
 
 // Phase 1 helper retained for the /health page.
 export async function fetchBackendHealth(): Promise<{ status: string } | null> {

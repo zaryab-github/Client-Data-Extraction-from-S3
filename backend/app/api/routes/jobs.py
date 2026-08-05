@@ -119,12 +119,15 @@ def create_job(
 def list_jobs(
     db: Annotated[Session, Depends(get_db)],
     user: CurrentUser,
+    status_filter: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[JobOut]:
     stmt = select(ExtractionJob).order_by(ExtractionJob.created_at.desc())
     if not rbac.is_admin(user):
         stmt = stmt.where(ExtractionJob.user_id == user.id)
+    if status_filter:
+        stmt = stmt.where(ExtractionJob.status == status_filter.upper())
     stmt = stmt.limit(min(limit, 200)).offset(offset)
     return [_job_out(db, j) for j in db.scalars(stmt).all()]
 
