@@ -4,6 +4,7 @@ Importing every model here ensures they are registered on ``Base.metadata`` for
 Alembic autogeneration and ``create_all``.
 """
 
+from app.db.models.audit import AuditLog
 from app.db.models.job import ExtractionJob, JobStatus, ReportMetadata
 from app.db.models.role import Permission, Role, role_permissions
 from app.db.models.shortcode import Shortcode
@@ -20,4 +21,5 @@ __all__ = [
     "ExtractionJob",
     "ReportMetadata",
     "JobStatus",
+    "AuditLog",
 ]

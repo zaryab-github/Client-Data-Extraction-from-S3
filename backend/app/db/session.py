@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -21,8 +21,23 @@ _SessionFactory: sessionmaker[Session] | None = None
 
 def _make_engine(url: str) -> Engine:
     # SQLite (used in local/dev/test) needs a special connect arg for threads.
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, pool_pre_ping=True, future=True, connect_args=connect_args)
+    is_sqlite = url.startswith("sqlite")
+    connect_args = {"check_same_thread": False} if is_sqlite else {}
+    engine = create_engine(
+        url, pool_pre_ping=True, future=True, connect_args=connect_args
+    )
+    if is_sqlite:
+        # WAL + a busy timeout let concurrent sessions (e.g. an API session and a
+        # Celery-eager task session in tests) read/write without long lock stalls.
+        # Production uses PostgreSQL, where this is a no-op.
+        @event.listens_for(engine, "connect")
+        def _set_sqlite_pragma(dbapi_conn, _record):  # noqa: ANN001
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=5000")
+            cur.close()
+
+    return engine
 
 
 def get_engine() -> Engine:

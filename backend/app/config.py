@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     CELERY_TASK_TIME_LIMIT: int = 21600
     CELERY_WORKER_CONCURRENCY: int = 4
     CELERY_MAX_RETRIES: int = 3
+    # How often Celery beat runs the retention cleanup (seconds; default daily).
+    RETENTION_CLEANUP_INTERVAL_SECONDS: int = 86400
 
     # ── AWS / S3 (read-only source; Phase 4) ───────────────
     AWS_REGION: str = ""
