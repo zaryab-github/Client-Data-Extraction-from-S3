@@ -23,12 +23,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.config import settings
 from app.core import rbac
-from app.core.rbac import REPORT_DOWNLOAD
+from app.core.rbac import REPORT_DOWNLOAD, REPORT_EMAIL
 from app.core.security import create_download_token, decode_token
+from app.db.models.email_delivery import EmailDelivery, EmailStatus
 from app.db.models.job import ExtractionJob, ReportMetadata
 from app.db.models.user import User
 from app.db.session import get_db
+from app.schemas.email import EmailDeliveryOut, EmailRequest
 from app.services import audit_service
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -114,3 +117,55 @@ def _user_from_sub(db: Session, sub) -> User | None:
         return db.get(User, uuid.UUID(str(sub)))
     except (ValueError, TypeError):
         return None
+
+
+# ── Email delivery ─────────────────────────────────────────
+def _delivery_out(d: EmailDelivery) -> EmailDeliveryOut:
+    return EmailDeliveryOut(
+        id=str(d.id), job_id=d.job_id, recipient=d.recipient, method=d.method,
+        status=d.status, error=d.error, created_at=d.created_at, sent_at=d.sent_at,
+    )
+
+
+@router.post("/{job_id}/email", response_model=EmailDeliveryOut, status_code=status.HTTP_202_ACCEPTED)
+def email_report(
+    job_id: str,
+    payload: EmailRequest,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(require_permission(REPORT_EMAIL))],
+) -> EmailDeliveryOut:
+    if not settings.EMAIL_ENABLED:
+        raise HTTPException(status_code=503, detail="Email delivery is not enabled.")
+    _load_owned(db, job_id, user)  # ownership + report existence
+
+    recipient = str(payload.recipient) if payload.recipient else user.email
+    delivery = EmailDelivery(job_id=job_id, recipient=recipient, status=EmailStatus.PENDING)
+    db.add(delivery)
+    db.commit()
+    db.refresh(delivery)
+
+    audit_service.record(
+        db, audit_service.REPORT_EMAIL, user=user, resource_type="report",
+        resource_id=job_id, request=request, details={"recipient": recipient},
+    )
+
+    from app.workers.tasks.email_task import send_report_email
+
+    send_report_email.delay(str(delivery.id))
+    return _delivery_out(delivery)
+
+
+@router.get("/{job_id}/emails", response_model=list[EmailDeliveryOut])
+def list_email_deliveries(
+    job_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(require_permission(REPORT_EMAIL))],
+) -> list[EmailDeliveryOut]:
+    _load_owned(db, job_id, user)
+    rows = db.scalars(
+        select(EmailDelivery)
+        .where(EmailDelivery.job_id == job_id)
+        .order_by(EmailDelivery.created_at.desc())
+    ).all()
+    return [_delivery_out(r) for r in rows]

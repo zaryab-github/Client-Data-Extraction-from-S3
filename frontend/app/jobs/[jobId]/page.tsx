@@ -5,9 +5,15 @@ import { useParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import StatusBadge from "@/components/StatusBadge";
 import { useAuthGuard } from "@/lib/useAuthGuard";
-import { downloadReport, getJob, getJobLogs } from "@/lib/api-client";
+import {
+  downloadReport,
+  emailReport,
+  getEmailDeliveries,
+  getJob,
+  getJobLogs,
+} from "@/lib/api-client";
 import { config } from "@/lib/config";
-import type { Job, JobLog } from "@/lib/auth";
+import type { EmailDelivery, Job, JobLog } from "@/lib/auth";
 
 const TERMINAL = ["COMPLETED", "FAILED", "EXPIRED"];
 
@@ -28,6 +34,8 @@ export default function JobStatusPage() {
   const [logs, setLogs] = useState<JobLog[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [emails, setEmails] = useState<EmailDelivery[]>([]);
+  const [emailMsg, setEmailMsg] = useState<string | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -85,6 +93,36 @@ export default function JobStatusPage() {
       setDownloading(false);
     }
   }
+
+  async function loadEmails() {
+    try {
+      setEmails(await getEmailDeliveries(jobId));
+    } catch {
+      /* email may not be enabled / no permission — ignore */
+    }
+  }
+
+  async function onEmail() {
+    const to = window.prompt("Send report to (email):", user?.email ?? "");
+    if (!to) return;
+    setEmailMsg(null);
+    try {
+      await emailReport(jobId, to);
+      setEmailMsg(`Queued email to ${to}. Status updates below.`);
+      // poll delivery status a few times
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        await loadEmails();
+      }
+    } catch (e) {
+      setEmailMsg(e instanceof Error ? e.message : "Failed to queue email.");
+    }
+  }
+
+  useEffect(() => {
+    if (job?.status === "COMPLETED") loadEmails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.status]);
 
   if (loading || !user) {
     return (
@@ -204,10 +242,26 @@ export default function JobStatusPage() {
                   <button className="btn" onClick={onDownload} disabled={downloading}>
                     {downloading ? "Preparing…" : "⬇ Download ZIP"}
                   </button>
-                  <button className="btn secondary" disabled title="Available in Phase 8">
+                  <button className="btn secondary" onClick={onEmail}>
                     ✉ Email report
                   </button>
                 </div>
+
+                {emailMsg && <p className="muted" style={{ marginTop: 10 }}>{emailMsg}</p>}
+                {emails.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <strong>Email deliveries</strong>
+                    <ul>
+                      {emails.map((e) => (
+                        <li key={e.id}>
+                          {e.recipient} — <strong>{e.status}</strong>
+                          {e.method ? ` (${e.method})` : ""}
+                          {e.error ? ` — ${e.error}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </>

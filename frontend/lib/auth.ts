@@ -91,6 +91,17 @@ export type JobLog = {
   created_at: string;
 };
 
+export type EmailDelivery = {
+  id: string;
+  job_id: string;
+  recipient: string;
+  method: string | null;
+  status: string;
+  error: string | null;
+  created_at: string;
+  sent_at: string | null;
+};
+
 export type AuditEntry = {
   id: string;
   user_email: string | null;

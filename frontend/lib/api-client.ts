@@ -10,6 +10,7 @@ import {
   type AdminUser,
   type AuditEntry,
   type CurrentUser,
+  type EmailDelivery,
   type Job,
   type JobLog,
   type Shortcode,
@@ -125,6 +126,14 @@ export function getJob(jobId: string): Promise<Job> {
 
 export function getJobLogs(jobId: string, afterId = 0): Promise<JobLog[]> {
   return apiGet<JobLog[]>(`/jobs/${jobId}/logs?after_id=${afterId}`);
+}
+
+export function emailReport(jobId: string, recipient?: string): Promise<EmailDelivery> {
+  return apiPost<EmailDelivery>(`/reports/${jobId}/email`, recipient ? { recipient } : {});
+}
+
+export function getEmailDeliveries(jobId: string): Promise<EmailDelivery[]> {
+  return apiGet<EmailDelivery[]>(`/reports/${jobId}/emails`);
 }
 
 export function listJobs(statusFilter?: string): Promise<Job[]> {

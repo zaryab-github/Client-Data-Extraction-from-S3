@@ -16,6 +16,7 @@ from app.config import settings
 TASK_MODULES = [
     "app.workers.tasks.extraction_task",
     "app.workers.tasks.retention_task",
+    "app.workers.tasks.email_task",
 ]
 
 
@@ -46,4 +47,4 @@ celery_app = create_celery()
 
 # Import task modules so tasks are registered whenever celery_app is imported
 # (not only inside a worker). Placed at the bottom to avoid a circular import.
-from app.workers.tasks import extraction_task, retention_task  # noqa: E402,F401
+from app.workers.tasks import email_task, extraction_task, retention_task  # noqa: E402,F401

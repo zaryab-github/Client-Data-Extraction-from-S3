@@ -99,14 +99,18 @@ Last updated: after Phase 7 (Frontend Dashboard & Admin Management).
 
 ---
 
-## 🔜 Planned
-
 ### Email delivery (Phase 8)
-- Send a completed report by email via **AWS SES or SMTP** (from `.env`).
-- Small reports as a **ZIP attachment**; large reports as a **short-lived secure
-  download link**.
-- Email delivery status + audit; recipient defaults to the requester.
-- Enables the currently-disabled "Email report" button in the UI.
+- Send a completed report by email. Primary provider is **Gmail via OAuth2** (refresh
+  token → access token → Gmail API); **SMTP** also supported. All config from `.env`.
+- **Small** reports (≤ `EMAIL_MAX_ATTACHMENT_BYTES`) are sent as a **ZIP attachment**;
+  **large** reports as a **short-lived secure download link** (reuses the signed
+  download token).
+- Runs on the Celery `email` path; delivery is tracked (`email_deliveries`: recipient,
+  method, status PENDING/SENT/FAILED, error, timestamps) and audit-logged.
+- Recipient defaults to the requester. UI: **Email report** button on the job page +
+  a delivery-status list.
+
+## 🔜 Planned
 
 ### Security hardening (Phase 9)
 - Run worker/api as a non-root user; review auth/RBAC/logging; input validation;

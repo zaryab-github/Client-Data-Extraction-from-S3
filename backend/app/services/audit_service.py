@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 JOB_CREATE = "job.create"
 JOB_ACCESS = "job.access"
 REPORT_DOWNLOAD = "report.download"
+REPORT_EMAIL = "report.email"
 AUTHZ_DENY = "authz.deny"
 
 

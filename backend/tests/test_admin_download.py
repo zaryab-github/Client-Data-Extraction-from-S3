@@ -186,6 +186,62 @@ def test_report_download_via_token(env):
     assert env.client.get(f"{API}/reports/{job_id}/download?token=bad").status_code == 401
 
 
+# ── Email delivery ─────────────────────────────────────────
+@mock_aws
+def test_email_report_success(env, monkeypatch):
+    _seed_s3()
+    monkeypatch.setattr(settings, "EMAIL_ENABLED", True)
+    sent = {}
+
+    def fake_send(msg):
+        sent["to"] = msg["To"]
+        return "gmail-msg-123"
+
+    monkeypatch.setattr("app.services.email_service._send_via_provider", fake_send)
+    admin_h = _auth(env.client, "admin@example.com")
+    analyst_h = _auth(env.client, "analyst@example.com")
+    job_id = _grant_and_job(env.client, admin_h, analyst_h)
+
+    r = env.client.post(f"{API}/reports/{job_id}/email", headers=analyst_h, json={})
+    assert r.status_code == 202
+
+    emails = env.client.get(f"{API}/reports/{job_id}/emails", headers=analyst_h).json()
+    assert len(emails) == 1
+    assert emails[0]["status"] == "SENT"
+    assert emails[0]["method"] == "attachment"  # tiny zip → attached
+    assert sent["to"] == "analyst@example.com"
+
+
+@mock_aws
+def test_email_report_failure(env, monkeypatch):
+    _seed_s3()
+    monkeypatch.setattr(settings, "EMAIL_ENABLED", True)
+
+    def boom(msg):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr("app.services.email_service._send_via_provider", boom)
+    admin_h = _auth(env.client, "admin@example.com")
+    analyst_h = _auth(env.client, "analyst@example.com")
+    job_id = _grant_and_job(env.client, admin_h, analyst_h)
+
+    env.client.post(f"{API}/reports/{job_id}/email", headers=analyst_h, json={})
+    emails = env.client.get(f"{API}/reports/{job_id}/emails", headers=analyst_h).json()
+    assert emails[0]["status"] == "FAILED"
+    assert emails[0]["error"]
+
+
+@mock_aws
+def test_email_disabled(env):
+    _seed_s3()
+    admin_h = _auth(env.client, "admin@example.com")
+    analyst_h = _auth(env.client, "analyst@example.com")
+    job_id = _grant_and_job(env.client, admin_h, analyst_h)
+    # EMAIL_ENABLED defaults to False → 503.
+    r = env.client.post(f"{API}/reports/{job_id}/email", headers=analyst_h, json={})
+    assert r.status_code == 503
+
+
 # ── Audit logs recorded ────────────────────────────────────
 @mock_aws
 def test_audit_logs(env):

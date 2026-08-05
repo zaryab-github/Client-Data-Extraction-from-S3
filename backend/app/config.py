@@ -93,11 +93,29 @@ class Settings(BaseSettings):
     REPORT_RETENTION_DAYS: int = 30
     ZIP_COMPRESSION_LEVEL: int = 6
 
-    # ── Email (Phase 7) ────────────────────────────────────
-    EMAIL_PROVIDER: str = "ses"            # ses | smtp
-    EMAIL_FROM_ADDRESS: str = ""
+    # ── Email (Phase 8) ────────────────────────────────────
+    EMAIL_ENABLED: bool = False
+    EMAIL_PROVIDER: str = "gmail"          # gmail | smtp | ses
+    EMAIL_FROM_ADDRESS: str = ""           # used by smtp/ses (gmail uses GMAIL_SENDER)
     EMAIL_MAX_ATTACHMENT_BYTES: int = 10_485_760
     DOWNLOAD_LINK_EXPIRE_MINUTES: int = 60
+    # Public base URL of THIS API (for building download links inside emails),
+    # e.g. http://192.168.255.171/api/v1
+    PUBLIC_API_BASE_URL: str = ""
+
+    # Gmail OAuth2 (EMAIL_PROVIDER=gmail)
+    GMAIL_CLIENT_ID: str = ""
+    GMAIL_CLIENT_SECRET: str = ""
+    GMAIL_REFRESH_TOKEN: str = ""
+    GMAIL_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
+    GMAIL_SENDER: str = ""
+
+    # SMTP (EMAIL_PROVIDER=smtp)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
 
     # ── n8n integration (external; Phase 10) ───────────────
     N8N_BASE_URL: str = ""

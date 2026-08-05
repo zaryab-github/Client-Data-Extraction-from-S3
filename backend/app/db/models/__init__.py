@@ -5,6 +5,7 @@ Alembic autogeneration and ``create_all``.
 """
 
 from app.db.models.audit import AuditLog
+from app.db.models.email_delivery import EmailDelivery, EmailMethod, EmailStatus
 from app.db.models.job import ExtractionJob, JobStatus, ReportMetadata
 from app.db.models.job_log import JobLog
 from app.db.models.role import Permission, Role, role_permissions
@@ -24,4 +25,7 @@ __all__ = [
     "JobStatus",
     "AuditLog",
     "JobLog",
+    "EmailDelivery",
+    "EmailMethod",
+    "EmailStatus",
 ]
