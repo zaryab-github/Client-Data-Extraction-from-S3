@@ -165,6 +165,34 @@ def test_datetime_filtering(s3_config, tmp_path):
     assert stats.bad_timestamp_rows == 1
 
 
+# ── Destination filter ─────────────────────────────────────
+@mock_aws
+def test_destination_filter(s3_config, tmp_path):
+    client = boto3.client("s3", region_name=REGION)
+    client.create_bucket(Bucket=BUCKET)
+    header = "_id,source_addr,destination_addr,created_at,short_message"
+    body = "\n".join([
+        header,
+        "1,8990,923000000001,2023-09-01 08:00:00.000,a",
+        "2,8990,923000000002,2023-09-01 09:00:00.000,b",
+        "3,8990,923000000001,2023-09-01 10:00:00.000,c",
+        "",
+    ])
+    client.put_object(Bucket=BUCKET, Key=f"{PREFIX}/daily-data_2023-09-01.csv", Body=body.encode())
+
+    out = tmp_path / "out.csv"
+    stats = run_extraction(
+        ExtractionRequest(
+            ["8990"], datetime(2023, 9, 1, 0, 0, 0), datetime(2023, 9, 1, 23, 59, 59),
+            destinations=["923000000001"],
+        ),
+        str(out),
+    )
+    _, ids = _read_output(out)
+    assert sorted(ids) == ["1", "3"]  # only rows with that destination_addr
+    assert stats.rows_matched == 2
+
+
 # ── No matching records ────────────────────────────────────
 @mock_aws
 def test_no_matching_records(s3_config, tmp_path):

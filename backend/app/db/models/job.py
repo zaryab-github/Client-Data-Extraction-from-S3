@@ -43,6 +43,8 @@ class ExtractionJob(Base):
     status: Mapped[str] = mapped_column(String(20), default=JobStatus.PENDING, index=True)
 
     requested_shortcodes: Mapped[list] = mapped_column(JSON, default=list)
+    # Optional destination_addr filter values (empty/None = no destination filter).
+    destination_addrs: Mapped[list | None] = mapped_column(JSON, default=None)
     date_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     date_to: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     source: Mapped[str] = mapped_column(String(20), default="web")

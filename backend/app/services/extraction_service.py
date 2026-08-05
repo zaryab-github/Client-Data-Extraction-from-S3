@@ -45,6 +45,8 @@ class ExtractionRequest:
     shortcodes: list[str]
     date_from: datetime
     date_to: datetime
+    # Optional: keep only rows whose destination_addr is one of these values.
+    destinations: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -131,9 +133,12 @@ def run_extraction(
     if _to_naive(request.date_from) > _to_naive(request.date_to):
         raise ExtractionError("date_from must be on or before date_to.")
 
+    destinations = {str(d).strip() for d in request.destinations if str(d).strip()}
+
     result = discovery or s3_service.discover_files(request.date_from, request.date_to)
 
     sc_col = settings.CSV_SHORTCODE_COLUMN
+    dest_col = settings.CSV_DESTINATION_COLUMN
     delimiter = settings.CSV_DELIMITER
     ts_col = settings.CSV_TIMESTAMP_COLUMN or None
     ts_fmt = settings.CSV_TIMESTAMP_FORMAT or None
@@ -170,6 +175,11 @@ def run_extraction(
                     )
                 sc_idx = header.index(sc_col)
                 ts_idx = header.index(ts_col) if (time_filter and ts_col in header) else None
+                if destinations and dest_col not in header:
+                    raise ExtractionError(
+                        f"Destination column '{dest_col}' not found in {discovered.key}."
+                    )
+                dest_idx = header.index(dest_col) if (destinations and dest_col in header) else None
 
                 if canonical_header is None:
                     canonical_header = header
@@ -185,6 +195,11 @@ def run_extraction(
                         continue
                     if row[sc_idx].strip() not in shortcodes:
                         continue
+
+                    if dest_idx is not None:
+                        dval = row[dest_idx] if dest_idx < len(row) else ""
+                        if dval.strip() not in destinations:
+                            continue
 
                     if ts_idx is not None:
                         raw_ts = row[ts_idx] if ts_idx < len(row) else ""

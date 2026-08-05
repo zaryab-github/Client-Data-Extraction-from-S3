@@ -11,6 +11,8 @@ class JobCreateRequest(BaseModel):
     shortcodes: list[str]
     date_from: datetime
     date_to: datetime
+    # Optional: further restrict to these destination_addr values.
+    destinations: list[str] = []
 
 
 class ReportOut(BaseModel):
@@ -28,6 +30,7 @@ class JobOut(BaseModel):
     job_id: str
     status: str
     requested_shortcodes: list[str]
+    destination_addrs: list[str] | None = None
     date_from: datetime
     date_to: datetime
     created_at: datetime | None = None

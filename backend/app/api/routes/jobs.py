@@ -54,6 +54,7 @@ def _job_out(db: Session, job: ExtractionJob) -> JobOut:
         job_id=job.job_id,
         status=job.status,
         requested_shortcodes=list(job.requested_shortcodes),
+        destination_addrs=list(job.destination_addrs) if job.destination_addrs else None,
         date_from=job.date_from,
         date_to=job.date_to,
         created_at=job.created_at,
@@ -98,6 +99,7 @@ def create_job(
             shortcodes=payload.shortcodes,
             date_from=payload.date_from,
             date_to=payload.date_to,
+            destinations=payload.destinations,
         ),
     )
     audit_service.record(

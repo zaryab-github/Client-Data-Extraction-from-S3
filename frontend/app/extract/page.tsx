@@ -14,6 +14,7 @@ export default function ExtractPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [destinations, setDestinations] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,9 +35,13 @@ export default function ExtractPage() {
     if (selected.length === 0) return setError("Select at least one shortcode.");
     if (!from || !to) return setError("Choose a start and end date/time.");
     if (from > to) return setError("Start must be before end.");
+    const dests = destinations
+      .split(/[\s,;]+/)
+      .map((d) => d.trim())
+      .filter(Boolean);
     setSubmitting(true);
     try {
-      const job = await createJob(selected, withSeconds(from), withSeconds(to));
+      const job = await createJob(selected, withSeconds(from), withSeconds(to), dests);
       router.push(`/jobs/${job.job_id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create job");
@@ -90,6 +95,24 @@ export default function ExtractPage() {
             <label className="field">
               <span>End</span>
               <input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
+            </label>
+          </div>
+
+          <div className="card">
+            <h2>
+              Destination numbers <span className="muted">· optional</span>
+            </h2>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Limit results to specific <code>destination_addr</code> values. Leave empty to
+              include all. Separate multiple numbers with commas, spaces, or new lines.
+            </p>
+            <label className="field">
+              <span>destination_addr filter</span>
+              <input
+                value={destinations}
+                onChange={(e) => setDestinations(e.target.value)}
+                placeholder="923008618543, 923445424686"
+              />
             </label>
           </div>
 

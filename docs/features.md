@@ -28,12 +28,15 @@ Last updated: after Phase 7 (Frontend Dashboard & Admin Management).
 - Two discovery modes (`list` / `template`), configurable via `.env`.
 - Missing daily files are reported (not fatal). S3 is never modified or deleted.
 
-### CSV extraction engine (Phase 4)
+### CSV extraction engine (Phase 4, + destination filter)
 - Streams each daily file from S3 **row by row** (constant memory) — safe for the
   real 100–236 MB/day files.
 - Keeps rows where the shortcode column (`source_addr`) matches **and** the timestamp
   column (`created_at`) is within range. Rows with a missing/unparseable timestamp are
   **kept** and counted.
+- **Optional destination filter:** narrow results to specific `destination_addr`
+  values (MSISDNs). Column configurable via `CSV_DESTINATION_COLUMN`; per-job values
+  stored on the job and shown in the UI.
 - Preserves all original columns; combines matches from all files into one CSV.
 
 ### Reports: Job ID, storage, packaging (Phase 5)

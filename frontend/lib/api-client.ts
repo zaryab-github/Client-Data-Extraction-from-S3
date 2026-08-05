@@ -97,8 +97,18 @@ export function getShortcodes(): Promise<Shortcode[]> {
 }
 
 // ── Jobs ─────────────────────────────────────────────────
-export function createJob(shortcodes: string[], dateFrom: string, dateTo: string): Promise<Job> {
-  return apiPost<Job>("/jobs", { shortcodes, date_from: dateFrom, date_to: dateTo });
+export function createJob(
+  shortcodes: string[],
+  dateFrom: string,
+  dateTo: string,
+  destinations: string[] = [],
+): Promise<Job> {
+  return apiPost<Job>("/jobs", {
+    shortcodes,
+    date_from: dateFrom,
+    date_to: dateTo,
+    destinations,
+  });
 }
 
 export function getJob(jobId: string): Promise<Job> {

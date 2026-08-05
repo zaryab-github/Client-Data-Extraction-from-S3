@@ -103,6 +103,9 @@ export default function JobStatusPage() {
                 <Stat label="Shortcodes" value={job.requested_shortcodes.join(", ")} />
                 <Stat label="From" value={job.date_from.replace("T", " ").replace("Z", "")} />
                 <Stat label="To" value={job.date_to.replace("T", " ").replace("Z", "")} />
+                {job.destination_addrs && job.destination_addrs.length > 0 && (
+                  <Stat label="Destination filter" value={job.destination_addrs.join(", ")} />
+                )}
               </div>
             </div>
 

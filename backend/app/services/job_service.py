@@ -41,6 +41,7 @@ def create_job(db: Session, user: User, request: ExtractionRequest, source: str 
             user_id=user.id,
             status=JobStatus.PENDING,
             requested_shortcodes=list(request.shortcodes),
+            destination_addrs=list(request.destinations) or None,
             date_from=request.date_from,
             date_to=request.date_to,
             source=source,
@@ -66,6 +67,7 @@ def run_job(db: Session, job: ExtractionJob) -> ExtractionJob:
         shortcodes=list(job.requested_shortcodes),
         date_from=job.date_from,
         date_to=job.date_to,
+        destinations=list(job.destination_addrs) if job.destination_addrs else [],
     )
     job.status = JobStatus.PROCESSING
     job.started_at = _now()
@@ -89,6 +91,7 @@ def run_job(db: Session, job: ExtractionJob) -> ExtractionJob:
             "job_id": job.job_id,
             "user": _user_email(db, job.user_id),
             "shortcodes": list(job.requested_shortcodes),
+            "destination_addrs": list(job.destination_addrs) if job.destination_addrs else [],
             "date_from": job.date_from.isoformat(),
             "date_to": job.date_to.isoformat(),
             "files_processed": stats.files_processed,

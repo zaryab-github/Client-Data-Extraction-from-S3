@@ -77,6 +77,8 @@ class Settings(BaseSettings):
 
     # ── CSV extraction (Phase 4) ───────────────────────────
     CSV_SHORTCODE_COLUMN: str = "source_addr"
+    # Optional additional filter column (e.g. destination_addr / MSISDN).
+    CSV_DESTINATION_COLUMN: str = "destination_addr"
     CSV_DELIMITER: str = ","
     CSV_HAS_HEADER: bool = True
     CSV_COMPRESSION: str = "none"          # none | gzip

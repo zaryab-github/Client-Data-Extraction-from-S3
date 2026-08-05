@@ -53,6 +53,7 @@ export type Job = {
   job_id: string;
   status: string;
   requested_shortcodes: string[];
+  destination_addrs?: string[] | null;
   date_from: string;
   date_to: string;
   created_at?: string | null;
