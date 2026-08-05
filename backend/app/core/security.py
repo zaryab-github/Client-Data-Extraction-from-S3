@@ -63,6 +63,16 @@ def create_refresh_token(subject: str) -> str:
     )
 
 
+def create_download_token(subject: str, job_id: str) -> str:
+    """Short-lived capability token for a native (streamed) report download."""
+    return _create_token(
+        subject,
+        "download",
+        timedelta(minutes=settings.DOWNLOAD_LINK_EXPIRE_MINUTES),
+        extra={"job_id": job_id},
+    )
+
+
 def decode_token(token: str) -> dict[str, Any]:
     """Decode + verify a JWT. Raises jwt.PyJWTError on invalid/expired tokens."""
     return jwt.decode(

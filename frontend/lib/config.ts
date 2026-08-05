@@ -6,6 +6,8 @@ export const config = {
   maxRangeDays: Number(process.env.NEXT_PUBLIC_MAX_RANGE_DAYS ?? "92"),
   jobPollIntervalMs: Number(process.env.NEXT_PUBLIC_JOB_POLL_INTERVAL_MS ?? "3000"),
   enableAssistant: (process.env.NEXT_PUBLIC_ENABLE_ASSISTANT ?? "false") === "true",
+  // Auto-logout after this many minutes of no activity.
+  idleTimeoutMin: Number(process.env.NEXT_PUBLIC_IDLE_TIMEOUT_MIN ?? "15"),
 };
 
 export function assertConfigured(): void {

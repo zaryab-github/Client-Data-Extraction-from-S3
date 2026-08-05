@@ -89,6 +89,13 @@ export async function logout(): Promise<void> {
   clearToken();
 }
 
+// Renew the access token using the httpOnly refresh cookie (keeps an active
+// session alive so only *inactivity* logs the user out).
+export async function refreshSession(): Promise<void> {
+  const res = await apiPost<LoginResponse>("/auth/refresh");
+  setToken(res.access_token);
+}
+
 export function getMe(): Promise<CurrentUser> {
   return apiGet<CurrentUser>("/auth/me");
 }
@@ -125,25 +132,17 @@ export function listJobs(statusFilter?: string): Promise<Job[]> {
   return apiGet<Job[]>(`/jobs${q}`);
 }
 
-// Download the ZIP with the bearer token, then trigger a browser save.
+// Get a short-lived signed link and let the browser stream the ZIP straight to
+// disk (native download with progress) — no in-memory buffering of large files.
 export async function downloadReport(jobId: string): Promise<void> {
-  const token = getToken();
-  const res = await fetch(`${config.apiBaseUrl}/reports/${jobId}/download`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) {
-    if (res.status === 401) clearToken();
-    throw new ApiError(res.status, `Download failed (${res.status})`);
-  }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
+  const { token } = await apiGet<{ token: string }>(`/reports/${jobId}/download-token`);
+  const url = `${config.apiBaseUrl}/reports/${jobId}/download?token=${encodeURIComponent(token)}`;
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${jobId}.zip`;
+  a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
 }
 
 // ── Admin ────────────────────────────────────────────────

@@ -169,6 +169,23 @@ def test_report_download(env):
     assert env.client.get(f"{API}/reports/{job_id}/download", headers=other_h).status_code == 404
 
 
+# ── Report download via signed token ───────────────────────
+@mock_aws
+def test_report_download_via_token(env):
+    _seed_s3()
+    admin_h = _auth(env.client, "admin@example.com")
+    analyst_h = _auth(env.client, "analyst@example.com")
+    job_id = _grant_and_job(env.client, admin_h, analyst_h)
+
+    tok = env.client.get(f"{API}/reports/{job_id}/download-token", headers=analyst_h).json()["token"]
+    r = env.client.get(f"{API}/reports/{job_id}/download?token={tok}")  # no auth header
+    assert r.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+        assert "extracted_data.csv" in zf.namelist()
+
+    assert env.client.get(f"{API}/reports/{job_id}/download?token=bad").status_code == 401
+
+
 # ── Audit logs recorded ────────────────────────────────────
 @mock_aws
 def test_audit_logs(env):

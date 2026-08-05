@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/api-client";
 
@@ -9,7 +9,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Read ?reason=idle without useSearchParams (keeps the build simple).
+    if (new URLSearchParams(window.location.search).get("reason") === "idle") {
+      setNotice("You were signed out due to inactivity. Please sign in again.");
+    }
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -35,6 +43,8 @@ export default function LoginPage() {
             Sign in to continue
           </p>
         </div>
+
+        {notice && <div className="notice warn">{notice}</div>}
 
         <form onSubmit={onSubmit}>
           <label className="field">
