@@ -39,6 +39,7 @@ def _report_out(report: ReportMetadata | None) -> ReportOut | None:
     return ReportOut(
         csv_row_count=report.csv_row_count,
         source_file_count=report.source_file_count,
+        source_files=list(report.source_files) if report.source_files else None,
         missing_file_count=report.missing_file_count,
         rows_scanned=report.rows_scanned,
         bad_timestamp_rows=report.bad_timestamp_rows,

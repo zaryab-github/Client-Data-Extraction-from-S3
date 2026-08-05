@@ -95,6 +95,28 @@ def test_narrow_range_selects_subset(s3_config, mode):
     assert result.missing_dates == []
 
 
+# ── Multi-part files per day ───────────────────────────────
+@mock_aws
+@pytest.mark.parametrize("mode", ["template", "list"])
+def test_multipart_files_per_day(s3_config, mode):
+    client = boto3.client("s3", region_name=REGION)
+    client.create_bucket(Bucket=BUCKET)
+    keys = [
+        f"{PREFIX}/daily-data_2023-09-01.csv",
+        f"{PREFIX}/daily-data_2023-09-01-part2.csv",
+        f"{PREFIX}/daily-data_2023-09-01-part3.csv",
+        f"{PREFIX}/daily-data_2023-09-02.csv",
+    ]
+    for k in keys:
+        client.put_object(Bucket=BUCKET, Key=k, Body=b"x")
+
+    result = s3_service.discover_files(date(2023, 9, 1), date(2023, 9, 2), mode=mode)
+    assert result.found_count == 4          # all parts discovered
+    assert result.missing_dates == []
+    day1 = [f for f in result.files if f.file_date == date(2023, 9, 1)]
+    assert len(day1) == 3                    # base + part2 + part3
+
+
 # ── Missing file handling ──────────────────────────────────
 @mock_aws
 @pytest.mark.parametrize("mode", ["template", "list"])

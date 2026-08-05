@@ -23,10 +23,15 @@ Last updated: after Phase 7 (Frontend Dashboard & Admin Management).
 - Every permission is validated on the **backend** on every request; the UI only
   reflects it. Denied attempts are audit-logged.
 
-### S3 source integration (Phase 3)
+### S3 source integration (Phase 3, + multi-part days)
 - Read-only discovery of the daily CSV files that fall in a date range.
-- Two discovery modes (`list` / `template`), configurable via `.env`.
+- **Multi-part days supported:** a single day split across files (`daily-data_DATE.csv`,
+  `daily-data_DATE-part2.csv`, …) is fully discovered — **all** parts are processed.
+- Two discovery modes (`list` = one bucket listing; `template` = efficient per-day
+  targeted listing), configurable via `.env`. Both handle parts.
 - Missing daily files are reported (not fatal). S3 is never modified or deleted.
+- The exact **list of files scanned** for a job is recorded and shown in the UI, so you
+  can verify which parts were included.
 
 ### CSV extraction engine (Phase 4, + destination filter)
 - Streams each daily file from S3 **row by row** (constant memory) — safe for the

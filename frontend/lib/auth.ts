@@ -41,6 +41,7 @@ export type Shortcode = {
 export type JobReport = {
   csv_row_count: number;
   source_file_count: number;
+  source_files?: string[] | null;
   missing_file_count: number;
   rows_scanned: number;
   bad_timestamp_rows: number;

@@ -137,17 +137,28 @@ def _build_key(prefix: str, filename: str) -> str:
 
 
 def _template_to_regex(template: str) -> re.Pattern[str]:
-    """Turn a filename template into a regex with named date groups."""
-    tmp = template.replace("{yyyy}", "\x00Y").replace("{mm}", "\x00M").replace(
-        "{dd}", "\x00D"
-    )
+    """Turn a filename template into a regex with named date groups.
+
+    Allows optional multi-part suffixes (e.g. '-part2', '-part3') between the date
+    and the extension, so a day split across multiple files is matched:
+        daily-data_2026-08-02.csv
+        daily-data_2026-08-02-part2.csv
+    """
+    if "." in template:
+        stem, ext = template.rsplit(".", 1)
+        ext_regex = re.escape("." + ext)
+    else:
+        stem, ext_regex = template, ""
+    tmp = stem.replace("{yyyy}", "\x00Y").replace("{mm}", "\x00M").replace("{dd}", "\x00D")
     escaped = re.escape(tmp)
-    pattern = (
+    stem_pattern = (
         escaped.replace("\x00Y", r"(?P<y>\d{4})")
         .replace("\x00M", r"(?P<m>\d{2})")
         .replace("\x00D", r"(?P<d>\d{2})")
     )
-    return re.compile(f"^{pattern}$")
+    # Zero or more '-token' segments (e.g. -part2) between the date and extension.
+    multipart = r"(?:-[A-Za-z0-9]+)*"
+    return re.compile(f"^{stem_pattern}{multipart}{ext_regex}$")
 
 
 def _resolve(bucket, prefix, file_template, mode):
@@ -236,21 +247,46 @@ def discover_files(
 
 
 def _discover_template(bucket, prefix, file_template, expected) -> DiscoveryResult:
+    """Per-day targeted listing.
+
+    Lists objects under the day-specific prefix (e.g. `.../daily-data_2026-08-02`)
+    so ALL of a day's files — base + parts — are discovered, while staying efficient
+    (only that day's objects are listed, not the whole bucket).
+    """
     client = get_client()
+    pattern = _template_to_regex(file_template)
+    paginator = client.get_paginator("list_objects_v2")
     res = DiscoveryResult(bucket=bucket, prefix=prefix)
+
     for d in expected:
-        key = _build_key(prefix, _expand_template(file_template, d))
+        day_stem = _expand_template(file_template, d).rsplit(".", 1)[0]
+        day_prefix = _build_key(prefix, day_stem)
+        found = False
         try:
-            head = client.head_object(Bucket=bucket, Key=key)
-            res.files.append(DiscoveredFile(key=key, file_date=d, size=head.get("ContentLength")))
-        except ClientError as exc:
-            code = exc.response.get("Error", {}).get("Code", "")
-            if code in ("404", "NoSuchKey", "NotFound"):
-                res.missing_dates.append(d)
-            else:
-                raise S3AccessError(f"HeadObject failed for '{key}': {exc}") from exc
-        except (NoCredentialsError, EndpointConnectionError, BotoCoreError) as exc:
-            raise S3AccessError(f"S3 not reachable: {exc}") from exc
+            for page in paginator.paginate(Bucket=bucket, Prefix=day_prefix):
+                for obj in page.get("Contents", []):
+                    key = obj["Key"]
+                    filename = key.rsplit("/", 1)[-1]
+                    m = pattern.match(filename)
+                    if not m:
+                        continue
+                    try:
+                        fd = date(int(m.group("y")), int(m.group("m")), int(m.group("d")))
+                    except ValueError:
+                        continue
+                    if fd == d:
+                        found = True
+                        res.files.append(
+                            DiscoveredFile(key=key, file_date=d, size=obj.get("Size"))
+                        )
+        except (NoCredentialsError, EndpointConnectionError, BotoCoreError, ClientError) as exc:
+            raise S3AccessError(
+                f"ListObjectsV2 failed for '{bucket}/{day_prefix}': {exc}"
+            ) from exc
+        if not found:
+            res.missing_dates.append(d)
+
+    res.files.sort(key=lambda f: (f.file_date, f.key))
     return res
 
 
@@ -278,7 +314,8 @@ def _discover_list(bucket, prefix, file_template, expected) -> DiscoveryResult:
                     d = date(int(m.group("y")), int(m.group("m")), int(m.group("d")))
                 except ValueError:
                     continue
-                if d in wanted and d not in found_dates:
+                if d in wanted:
+                    # Collect ALL files for the date (base + parts), not just one.
                     found_dates.add(d)
                     res.files.append(
                         DiscoveredFile(key=key, file_date=d, size=obj.get("Size"))
@@ -286,6 +323,6 @@ def _discover_list(bucket, prefix, file_template, expected) -> DiscoveryResult:
     except (NoCredentialsError, EndpointConnectionError, BotoCoreError, ClientError) as exc:
         raise S3AccessError(f"ListObjectsV2 failed for '{bucket}/{list_prefix}': {exc}") from exc
 
-    res.files.sort(key=lambda f: f.file_date)
+    res.files.sort(key=lambda f: (f.file_date, f.key))
     res.missing_dates = sorted(d for d in wanted if d not in found_dates)
     return res

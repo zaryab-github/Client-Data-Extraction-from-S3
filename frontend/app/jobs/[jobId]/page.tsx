@@ -139,6 +139,22 @@ export default function JobStatusPage() {
                 <p className="muted" style={{ marginTop: 12 }}>
                   Expires {r.expires_at?.slice(0, 10) ?? "—"}
                 </p>
+
+                {r.source_files && r.source_files.length > 0 && (
+                  <details style={{ margin: "8px 0 16px" }}>
+                    <summary style={{ cursor: "pointer" }}>
+                      Files scanned ({r.source_files.length})
+                    </summary>
+                    <ul style={{ marginTop: 8 }}>
+                      {r.source_files.map((f) => (
+                        <li key={f}>
+                          <code>{f}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+
                 <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                   <button className="btn" onClick={onDownload} disabled={downloading}>
                     {downloading ? "Preparing…" : "⬇ Download ZIP"}

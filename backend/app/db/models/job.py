@@ -73,6 +73,8 @@ class ReportMetadata(Base):
 
     csv_row_count: Mapped[int] = mapped_column(Integer, default=0)
     source_file_count: Mapped[int] = mapped_column(Integer, default=0)
+    # The actual S3 keys that were scanned (base + parts).
+    source_files: Mapped[list | None] = mapped_column(JSON, default=None)
     missing_file_count: Mapped[int] = mapped_column(Integer, default=0)
     rows_scanned: Mapped[int] = mapped_column(Integer, default=0)
     bad_timestamp_rows: Mapped[int] = mapped_column(Integer, default=0)

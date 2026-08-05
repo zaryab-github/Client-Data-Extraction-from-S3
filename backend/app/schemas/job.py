@@ -18,6 +18,7 @@ class JobCreateRequest(BaseModel):
 class ReportOut(BaseModel):
     csv_row_count: int
     source_file_count: int
+    source_files: list[str] | None = None
     missing_file_count: int
     rows_scanned: int
     bad_timestamp_rows: int

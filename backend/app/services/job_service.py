@@ -126,6 +126,7 @@ def run_job(db: Session, job: ExtractionJob) -> ExtractionJob:
             metadata_json_path=str(final_dir / storage_service.METADATA_FILENAME),
             csv_row_count=stats.rows_matched,
             source_file_count=stats.files_processed,
+            source_files=list(stats.source_keys),
             missing_file_count=stats.files_missing,
             rows_scanned=stats.rows_scanned,
             bad_timestamp_rows=stats.bad_timestamp_rows,
