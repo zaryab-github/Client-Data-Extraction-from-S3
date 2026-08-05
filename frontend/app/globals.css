@@ -356,6 +356,31 @@ tbody tr:last-child td {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+/* ── Live log console ──────────────────────────────────── */
+.console {
+  background: #05080f;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px 14px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.logline {
+  color: #cdd9ee;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.logline.log-err {
+  color: #fca5a5;
+}
+.log-time {
+  color: #5f7599;
+  margin-right: 8px;
+}
 .spinner {
   display: inline-block;
   width: 16px;

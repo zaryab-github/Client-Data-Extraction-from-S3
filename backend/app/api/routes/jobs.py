@@ -25,8 +25,8 @@ from app.core import rbac
 from app.core.rbac import JOB_CREATE
 from app.db.models.job import ExtractionJob, ReportMetadata
 from app.db.session import get_db
-from app.schemas.job import JobCreateRequest, JobOut, ReportOut
-from app.services import audit_service, job_service
+from app.schemas.job import JobCreateRequest, JobLogOut, JobOut, ReportOut
+from app.services import audit_service, job_log_service, job_service
 from app.services.authorization import authorize_shortcodes
 from app.services.extraction_service import ExtractionRequest
 
@@ -151,3 +151,20 @@ def get_job(
         resource_id=job.job_id, request=request,
     )
     return _job_out(db, job)
+
+
+@router.get("/{job_id}/logs", response_model=list[JobLogOut])
+def get_job_logs(
+    job_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    user: CurrentUser,
+    after_id: int = 0,
+) -> list[JobLogOut]:
+    """Incremental job logs (?after_id=N returns lines after N) for a live console."""
+    job = db.scalar(select(ExtractionJob).where(ExtractionJob.job_id == job_id))
+    if job is None or (job.user_id != user.id and not rbac.is_admin(user)):
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return [
+        JobLogOut(id=r.id, level=r.level, message=r.message, created_at=r.created_at)
+        for r in job_log_service.get_logs(db, job_id, after_id=after_id)
+    ]

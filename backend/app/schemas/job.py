@@ -7,6 +7,13 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class JobLogOut(BaseModel):
+    id: int
+    level: str
+    message: str
+    created_at: datetime
+
+
 class JobCreateRequest(BaseModel):
     shortcodes: list[str]
     date_from: datetime

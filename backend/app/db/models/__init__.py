@@ -6,6 +6,7 @@ Alembic autogeneration and ``create_all``.
 
 from app.db.models.audit import AuditLog
 from app.db.models.job import ExtractionJob, JobStatus, ReportMetadata
+from app.db.models.job_log import JobLog
 from app.db.models.role import Permission, Role, role_permissions
 from app.db.models.shortcode import Shortcode
 from app.db.models.user import User
@@ -22,4 +23,5 @@ __all__ = [
     "ReportMetadata",
     "JobStatus",
     "AuditLog",
+    "JobLog",
 ]

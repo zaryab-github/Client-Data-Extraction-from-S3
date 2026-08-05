@@ -129,6 +129,25 @@ def test_admin_create_user(env):
     assert "new@example.com" in emails
 
 
+# ── Admin: delete user ─────────────────────────────────────
+def test_admin_delete_user(env):
+    admin_h = _auth(env.client, "admin@example.com")
+    created = env.client.post(f"{API}/admin/users", headers=admin_h, json={
+        "email": "todelete@example.com", "password": PASSWORD, "role": "viewer"}).json()
+    r = env.client.delete(f"{API}/admin/users/{created['id']}", headers=admin_h)
+    assert r.status_code == 204
+    emails = [u["email"] for u in env.client.get(f"{API}/admin/users", headers=admin_h).json()]
+    assert "todelete@example.com" not in emails
+
+
+def test_admin_cannot_delete_self(env):
+    admin_h = _auth(env.client, "admin@example.com")
+    me = next(u for u in env.client.get(f"{API}/admin/users", headers=admin_h).json()
+              if u["email"] == "admin@example.com")
+    r = env.client.delete(f"{API}/admin/users/{me['id']}", headers=admin_h)
+    assert r.status_code == 400
+
+
 # ── Report download ────────────────────────────────────────
 @mock_aws
 def test_report_download(env):

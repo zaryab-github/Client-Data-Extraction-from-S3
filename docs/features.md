@@ -57,15 +57,35 @@ Last updated: after Phase 7 (Frontend Dashboard & Admin Management).
 - Idempotent tasks; retention cleanup scheduled on Celery beat.
 - **Audit log** of logins, job creation/access, downloads, and denials.
 
-### Web app + admin (Phase 7)
+### Web app + admin (Phase 7, + extras)
 - **Dashboard** with stat tiles and recent jobs.
-- **Extract** screen: authorized-shortcode multi-select + date/time range → Generate.
-- **Job status** page: live polling with a status badge; **ZIP download**; clear
-  "no source files found" notice when a range has no data.
+- **Extract** screen: authorized-shortcode multi-select + date/time range +
+  optional destination filter → Generate.
+- **Job status** page: live polling with a status badge; a **live log console**
+  (real-time per-job progress); **ZIP download**; "files scanned" list; clear
+  "no source files found" notice.
 - **History** with status filter and per-job download.
-- **Admin** screens: register/list **shortcodes**, create/list **users** (+ roles),
-  **grant** shortcode access, view **audit logs**.
+- **Admin** screens: register/list **shortcodes** + grant access; full **user
+  management** (create, change role, activate/deactivate, reset password, delete);
+  view **audit logs**.
 - Modern tabbed UI, dark theme, colored status badges.
+
+### Roles (RBAC)
+| Role | Purpose |
+|------|---------|
+| **admin** | Manage users/roles/shortcodes/grants, view audit; authorized for all shortcodes; sees all jobs. |
+| **analyst** | Create extraction jobs (granted shortcodes only), download/email reports, view own history. |
+| **viewer** | Read-only: download reports + view own history. Cannot create jobs. |
+
+### Live job logs
+- Each job streams progress lines (discovery, per-file reading, periodic row counts,
+  completion) to a **live console** in the UI (`GET /jobs/{id}/logs?after_id=N`,
+  polled). Lets you verify exactly which files were scanned and watch progress in
+  real time.
+
+### User management
+- Admins can **create, update (role / active / name / password), and delete** users.
+  Delete is blocked (409) for users with related records — deactivate them instead.
 
 ### Operational CLIs (in the api container)
 | Command | Purpose |

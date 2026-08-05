@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import StatusBadge from "@/components/StatusBadge";
 import { useAuthGuard } from "@/lib/useAuthGuard";
-import { downloadReport, getJob } from "@/lib/api-client";
+import { downloadReport, getJob, getJobLogs } from "@/lib/api-client";
 import { config } from "@/lib/config";
-import type { Job } from "@/lib/auth";
+import type { Job, JobLog } from "@/lib/auth";
 
 const TERMINAL = ["COMPLETED", "FAILED", "EXPIRED"];
 
@@ -25,19 +25,41 @@ export default function JobStatusPage() {
   const params = useParams();
   const jobId = String(params.jobId);
   const [job, setJob] = useState<Job | null>(null);
+  const [logs, setLogs] = useState<JobLog[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let lastLogId = 0;
+
+    const pullLogs = async () => {
+      try {
+        const next = await getJobLogs(jobId, lastLogId);
+        if (active && next.length) {
+          lastLogId = next[next.length - 1].id;
+          setLogs((prev) => [...prev, ...next]);
+        }
+      } catch {
+        /* ignore transient log errors */
+      }
+    };
+
     const poll = async () => {
       try {
         const j = await getJob(jobId);
         if (!active) return;
         setJob(j);
-        if (!TERMINAL.includes(j.status)) timer = setTimeout(poll, config.jobPollIntervalMs);
+        await pullLogs();
+        if (!TERMINAL.includes(j.status)) {
+          timer = setTimeout(poll, config.jobPollIntervalMs);
+        } else {
+          // catch any trailing COMPLETED/FAILED log line written just after status
+          setTimeout(pullLogs, 1500);
+        }
       } catch {
         if (active) setErr("Could not load this job.");
       }
@@ -48,6 +70,10 @@ export default function JobStatusPage() {
       if (timer) clearTimeout(timer);
     };
   }, [user, jobId]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
 
   async function onDownload() {
     setDownloading(true);
@@ -70,6 +96,7 @@ export default function JobStatusPage() {
 
   const r = job?.report;
   const noSourceFiles = job?.status === "COMPLETED" && r && r.source_file_count === 0;
+  const running = job != null && !TERMINAL.includes(job.status);
 
   return (
     <>
@@ -90,9 +117,9 @@ export default function JobStatusPage() {
           </p>
         ) : (
           <>
-            {!TERMINAL.includes(job.status) && (
+            {running && (
               <div className="notice warn">
-                <span className="spinner" /> Processing in the background — this page updates
+                <span className="spinner" /> Processing in the background — status and logs update
                 automatically.
               </div>
             )}
@@ -106,6 +133,24 @@ export default function JobStatusPage() {
                 {job.destination_addrs && job.destination_addrs.length > 0 && (
                   <Stat label="Destination filter" value={job.destination_addrs.join(", ")} />
                 )}
+              </div>
+            </div>
+
+            {/* Live log console */}
+            <div className="card">
+              <h2>Live log{running && <span className="muted"> · updating…</span>}</h2>
+              <div className="console">
+                {logs.length === 0 ? (
+                  <span className="muted">Waiting for logs…</span>
+                ) : (
+                  logs.map((l) => (
+                    <div key={l.id} className={`logline${l.level === "ERROR" ? " log-err" : ""}`}>
+                      <span className="log-time">{l.created_at.slice(11, 19)}</span>
+                      {l.message}
+                    </div>
+                  ))
+                )}
+                <div ref={logEndRef} />
               </div>
             </div>
 

@@ -11,7 +11,8 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
@@ -112,6 +113,27 @@ def update_user(
     db.commit()
     db.refresh(u)
     return _user_out(u)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: str, db: Annotated[Session, Depends(get_db)], admin=ManageUsers
+):
+    u = _get_user_or_404(db, user_id)
+    if admin.id == u.id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account.")
+    # Preserve the audit trail but detach it from the deleted user.
+    db.execute(update(AuditLog).where(AuditLog.user_id == u.id).values(user_id=None))
+    try:
+        db.delete(u)  # shortcode grants cascade-delete
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="User has related records (e.g. jobs). Deactivate the user instead.",
+        )
+    return None
 
 
 @router.get("/roles", response_model=list[RoleOut])

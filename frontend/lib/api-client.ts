@@ -11,6 +11,7 @@ import {
   type AuditEntry,
   type CurrentUser,
   type Job,
+  type JobLog,
   type Shortcode,
 } from "./auth";
 
@@ -115,6 +116,10 @@ export function getJob(jobId: string): Promise<Job> {
   return apiGet<Job>(`/jobs/${jobId}`);
 }
 
+export function getJobLogs(jobId: string, afterId = 0): Promise<JobLog[]> {
+  return apiGet<JobLog[]>(`/jobs/${jobId}/logs?after_id=${afterId}`);
+}
+
 export function listJobs(statusFilter?: string): Promise<Job[]> {
   const q = statusFilter ? `?status_filter=${encodeURIComponent(statusFilter)}` : "";
   return apiGet<Job[]>(`/jobs${q}`);
@@ -146,6 +151,12 @@ export const admin = {
   listUsers: () => apiGet<AdminUser[]>("/admin/users"),
   createUser: (body: { email: string; password: string; full_name?: string; role: string }) =>
     apiPost<AdminUser>("/admin/users", body),
+  updateUser: (
+    userId: string,
+    body: { role?: string; is_active?: boolean; full_name?: string; password?: string },
+  ) => request<AdminUser>(`/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteUser: (userId: string) =>
+    request<void>(`/admin/users/${userId}`, { method: "DELETE" }),
   listRoles: () => apiGet<{ name: string; permissions: string[] }[]>("/admin/roles"),
   listShortcodes: () => apiGet<AdminShortcode[]>("/admin/shortcodes"),
   createShortcode: (body: { code: string; name: string; description?: string; s3_prefix?: string }) =>

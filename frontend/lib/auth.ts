@@ -84,6 +84,13 @@ export type AdminShortcode = {
   is_active: boolean;
 };
 
+export type JobLog = {
+  id: number;
+  level: string;
+  message: string;
+  created_at: string;
+};
+
 export type AuditEntry = {
   id: string;
   user_email: string | null;

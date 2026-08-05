@@ -188,6 +188,27 @@ def test_job_ownership(env):
 
 
 @mock_aws
+def test_job_logs(env):
+    _seed_s3()
+    h = _auth(env.client, "analyst@example.com")
+    job_id = env.client.post(
+        f"{API}/jobs", headers=h, json={"shortcodes": ["8990"], **RANGE}
+    ).json()["job_id"]
+
+    logs = env.client.get(f"{API}/jobs/{job_id}/logs", headers=h)
+    assert logs.status_code == 200
+    lines = logs.json()
+    assert len(lines) > 0
+    text = " ".join(l["message"] for l in lines).lower()
+    assert "started" in text and "complete" in text
+
+    # incremental fetch returns nothing new when after_id = last id
+    last_id = lines[-1]["id"]
+    more = env.client.get(f"{API}/jobs/{job_id}/logs?after_id={last_id}", headers=h).json()
+    assert more == []
+
+
+@mock_aws
 def test_list_own_only(env):
     _seed_s3()
     ha = _auth(env.client, "analyst@example.com")

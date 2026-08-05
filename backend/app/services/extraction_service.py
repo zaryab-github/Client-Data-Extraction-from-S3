@@ -23,6 +23,8 @@ import csv
 import gzip
 import io
 import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
@@ -121,12 +123,21 @@ def run_extraction(
     output_path: str,
     *,
     discovery: "s3_service.DiscoveryResult | None" = None,
+    on_progress: Callable[[str], None] | None = None,
 ) -> ExtractionStats:
     """Extract matching rows for `request` into the CSV at `output_path`.
 
     `discovery` may be supplied to reuse a prior S3 file listing; otherwise the
-    files are discovered here.
+    files are discovered here. `on_progress` receives human-readable milestone
+    messages (used to stream a live job log to the UI).
     """
+    def emit(msg: str) -> None:
+        if on_progress:
+            try:
+                on_progress(msg)
+            except Exception:  # noqa: BLE001 - logging must never break extraction
+                pass
+
     shortcodes = {str(s).strip() for s in request.shortcodes if str(s).strip()}
     if not shortcodes:
         raise ExtractionError("No shortcodes provided.")
@@ -135,7 +146,15 @@ def run_extraction(
 
     destinations = {str(d).strip() for d in request.destinations if str(d).strip()}
 
+    emit("Discovering source files in S3…")
     result = discovery or s3_service.discover_files(request.date_from, request.date_to)
+    emit(
+        f"Found {len(result.files)} file(s) to scan"
+        + (f" · {len(result.missing_dates)} day(s) with no file" if result.missing_dates else "")
+        + f". Filtering shortcode(s): {', '.join(sorted(shortcodes))}"
+        + (f"; destination(s): {', '.join(sorted(destinations))}" if destinations else "")
+        + "."
+    )
 
     sc_col = settings.CSV_SHORTCODE_COLUMN
     dest_col = settings.CSV_DESTINATION_COLUMN
@@ -154,12 +173,16 @@ def run_extraction(
 
     canonical_header: list[str] | None = None
 
+    total_files = len(result.files)
     with open(output_path, "w", newline="", encoding="utf-8") as out_f:
         writer = csv.writer(out_f, delimiter=delimiter)
 
-        for discovered in result.files:
+        for idx, discovered in enumerate(result.files, 1):
+            size_mb = f" ({discovered.size / 1048576:.0f} MB)" if discovered.size else ""
+            emit(f"[{idx}/{total_files}] Reading {discovered.key}{size_mb}…")
             body = s3_service.get_object_stream(discovered.key)
             text = _open_text_stream(body, compression)
+            last_emit = time.monotonic()
             try:
                 reader = csv.reader(text, delimiter=delimiter)
                 try:
@@ -190,6 +213,14 @@ def run_extraction(
 
                 for row in reader:
                     stats.rows_scanned += 1
+                    if stats.rows_scanned % 200000 == 0:
+                        now = time.monotonic()
+                        if now - last_emit >= 2.0:
+                            emit(
+                                f"  …scanned {stats.rows_scanned:,} rows, "
+                                f"matched {stats.rows_matched:,}"
+                            )
+                            last_emit = now
                     if sc_idx >= len(row):
                         stats.malformed_rows += 1
                         continue
@@ -214,7 +245,12 @@ def run_extraction(
                     stats.rows_matched += 1
             finally:
                 text.close()
+            emit(f"[{idx}/{total_files}] Done {discovered.key} · matched {stats.rows_matched:,} so far")
 
+    emit(
+        f"Extraction complete: {stats.rows_matched:,} record(s) matched "
+        f"from {stats.rows_scanned:,} scanned across {stats.files_processed} file(s)."
+    )
     logger.info(
         "Extraction done: files=%d missing=%d scanned=%d matched=%d bad_ts=%d malformed=%d",
         stats.files_processed, stats.files_missing, stats.rows_scanned,

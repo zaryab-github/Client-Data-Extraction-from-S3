@@ -22,7 +22,7 @@ from app.config import settings
 from app.core.job_id import generate_job_id
 from app.db.models.job import ExtractionJob, JobStatus, ReportMetadata
 from app.db.models.user import User
-from app.services import storage_service, zip_service
+from app.services import job_log_service, storage_service, zip_service
 from app.services.extraction_service import ExtractionRequest, run_extraction
 
 logger = logging.getLogger(__name__)
@@ -73,12 +73,18 @@ def run_job(db: Session, job: ExtractionJob) -> ExtractionJob:
     job.started_at = _now()
     db.commit()
 
+    def log(msg: str, level: str = "INFO") -> None:
+        job_log_service.append(job.job_id, msg, level)
+
+    log(f"Job {job.job_id} started.")
+
     tmp = storage_service.new_temp_dir(job.job_id)
     try:
         csv_path = tmp / storage_service.CSV_FILENAME
-        stats = run_extraction(request, str(csv_path))
+        stats = run_extraction(request, str(csv_path), on_progress=log)
 
         completed = _now()
+        log("Packaging report (ZIP + metadata)…")
         expires = _expires_at(job.created_at or completed)
 
         zip_name = storage_service.zip_filename(job.job_id)
@@ -138,6 +144,7 @@ def run_job(db: Session, job: ExtractionJob) -> ExtractionJob:
         job.status = JobStatus.COMPLETED
         job.finished_at = completed
         db.commit()
+        log(f"COMPLETED · {stats.rows_matched:,} records · ZIP {zip_size:,} bytes.")
         logger.info("Job %s COMPLETED: %d rows", job.job_id, stats.rows_matched)
         return job
 
@@ -149,6 +156,7 @@ def run_job(db: Session, job: ExtractionJob) -> ExtractionJob:
         job.finished_at = _now()
         job.error_message = f"{type(exc).__name__}: {exc}"
         db.commit()
+        log(f"FAILED · {type(exc).__name__}: {exc}", level="ERROR")
         logger.exception("Job %s FAILED", job.job_id)
         return job
 
