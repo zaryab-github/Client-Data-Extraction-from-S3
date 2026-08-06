@@ -103,13 +103,12 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # DEFAULT: HTTP-only over the server IP (no public domain).
+      # DEFAULT: plain HTTP over the server IP.
       - ./nginx/app.http-only.conf:/etc/nginx/conf.d/default.conf:ro
-      # To use TLS instead (self-signed cert for an IP, or Let's Encrypt once you
-      # have a domain), comment the line above and uncomment these three:
+      # Optional self-signed TLS for the IP (see docs/deployment.md §6): comment the
+      # line above and uncomment these two:
       # - ./nginx/app.conf:/etc/nginx/conf.d/default.conf:ro
       # - ./nginx/certs:/etc/nginx/certs:ro
-      # - ./nginx/certbot-www:/var/www/certbot
     depends_on:
       - api
       - frontend

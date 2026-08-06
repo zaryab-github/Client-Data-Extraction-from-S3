@@ -10,11 +10,9 @@ deploy/.env
 *.key
 secrets/
 
-# ─── TLS certificates / ACME (deploy) ───────────────────
+# ─── TLS certificates (deploy) ───────────────────────────
 deploy/nginx/certs/*
 !deploy/nginx/certs/.gitkeep
-deploy/nginx/certbot-www/*
-!deploy/nginx/certbot-www/.gitkeep
 
 # ─── Local report storage (generated artifacts) ─────────
 storage/

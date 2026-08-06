@@ -25,7 +25,7 @@ recommendation · ⬜ recommended, not enforced by code.
 | 13 | Input validation | ✅ | Pydantic on all bodies; date range validated (`from ≤ to`, `MAX_RANGE_DAYS`); shortcode selection validated. |
 | 14 | API error handling | ✅ | Consistent `{"detail": …}`; a global handler logs unhandled errors server-side and returns a generic `500` (no internal leakage). |
 | 15 | Secure logging | ✅ 🟡 | No secrets/tokens/passwords are logged. **Recommendation:** ship logs to a central store and alert on `authz.deny` / `login.failure` spikes. |
-| 16 | Production HTTPS | 🟡 | Currently HTTP over a private IP (documented, intentional). TLS configs provided (`deploy/nginx/app.conf`; self-signed-for-IP and Let's Encrypt paths in `DEPLOYMENT.md`). **Recommendation:** enable TLS before any public exposure. |
+| 16 | Production HTTPS | 🟡 | Currently HTTP over a private IP (documented, intentional). Optional self-signed-TLS-for-IP config provided (`deploy/nginx/app.conf`; steps in [deployment.md](deployment.md) §6). **Recommendation:** enable TLS before any public exposure. |
 | 17 | Rate limiting | ✅ 🟡 | Login rate-limited per email+IP (Redis, best-effort). **Recommendation:** add limits to the n8n `/internal` endpoints in Phase 10. |
 
 ---

@@ -2,8 +2,8 @@
 
 A living catalogue of what the Client Data Extraction & Delivery System does today,
 what's planned, and the operational tools available. See
-[application-workflow.md](application-workflow.md) for the end-to-end design and
-[development_phases.md](../development_phases.md) for the phase plan.
+[architecture.md](architecture.md) for the end-to-end design and
+[development_phases.md](development_phases.md) for the phase plan.
 
 Last updated: after Phase 7 (Frontend Dashboard & Admin Management).
 
