@@ -12,6 +12,9 @@ from app.db.models.audit import AuditLog
 logger = logging.getLogger(__name__)
 
 # Action constants.
+LOGIN_SUCCESS = "login.success"
+LOGIN_FAILURE = "login.failure"
+LOGOUT = "logout"
 JOB_CREATE = "job.create"
 JOB_ACCESS = "job.access"
 REPORT_DOWNLOAD = "report.download"

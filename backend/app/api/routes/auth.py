@@ -21,7 +21,7 @@ from app.core.security import (
 from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, TokenResponse, UserOut
-from app.services import auth_service
+from app.services import audit_service, auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -54,11 +54,16 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
 @router.post("/login", response_model=TokenResponse)
 def login(
     payload: LoginRequest,
+    request: Request,
     response: Response,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
     identifier = payload.email.lower()
     if auth_service.login_rate_limited(identifier):
+        audit_service.record(
+            db, audit_service.LOGIN_FAILURE, request=request,
+            details={"email": identifier, "reason": "rate_limited"},
+        )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Try again later.",
@@ -66,6 +71,10 @@ def login(
 
     user = auth_service.authenticate(db, payload.email, payload.password)
     if user is None:
+        audit_service.record(
+            db, audit_service.LOGIN_FAILURE, request=request,
+            details={"email": identifier, "reason": "invalid_credentials"},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
@@ -74,6 +83,9 @@ def login(
     auth_service.reset_login_attempts(identifier)
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
+    audit_service.record(
+        db, audit_service.LOGIN_SUCCESS, user=user, request=request,
+    )
 
     access = create_access_token(str(user.id), role=user.role.name)
     refresh = create_refresh_token(str(user.id))
@@ -130,12 +142,18 @@ def refresh(
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response) -> dict:
+def logout(
+    request: Request,
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
     # Best-effort: denylist the access token's jti and clear the refresh cookie.
     auth = request.headers.get("Authorization", "")
+    sub = None
     if auth.lower().startswith("bearer "):
         try:
             claims = decode_token(auth.split(" ", 1)[1])
+            sub = claims.get("sub")
             jti = claims.get("jti")
             exp = claims.get("exp")
             if jti and exp:
@@ -144,6 +162,7 @@ def logout(request: Request, response: Response) -> dict:
         except jwt.PyJWTError:
             pass
     response.delete_cookie(_REFRESH_COOKIE, path="/")
+    audit_service.record(db, audit_service.LOGOUT, request=request, details={"sub": sub})
     return {"status": "logged_out"}
 
 

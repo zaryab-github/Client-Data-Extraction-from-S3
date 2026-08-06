@@ -112,11 +112,15 @@ Last updated: after Phase 7 (Frontend Dashboard & Admin Management).
 - Recipient defaults to the requester. UI: **Email report** button on the job page +
   a delivery-status list.
 
-## 🔜 Planned
-
 ### Security hardening (Phase 9)
-- Run worker/api as a non-root user; review auth/RBAC/logging; input validation;
-  production HTTPS guidance; rate-limit review; secret handling review.
+- Full security review against a 17-point checklist — see
+  [security-review.md](security-review.md).
+- Applied: security headers on every response, a safe global error handler (no
+  internal leakage), auth event auditing (login/logout/failed-login), an API-docs
+  toggle, and lightweight security tests. Recommendations (non-root containers, TLS,
+  secrets manager, dependency scanning) are documented.
+
+## 🔜 Planned
 
 ### AI / n8n integration (Phase 10)
 - Scoped `/internal` API for the external n8n VM (create job, check status, get

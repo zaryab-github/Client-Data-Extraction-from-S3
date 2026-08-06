@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     BACKEND_CORS_ORIGINS: str = ""         # comma-separated; see cors_origins property
     LOG_LEVEL: str = "INFO"
+    # Interactive API docs (/docs, /redoc, /openapi.json). Disable in production if
+    # you don't want the schema publicly reachable.
+    ENABLE_API_DOCS: bool = True
 
     # ── Security / Auth (Phase 2 uses these; declared now, from .env only) ──
     JWT_SECRET: str = ""

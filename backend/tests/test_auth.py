@@ -160,3 +160,38 @@ def test_viewer_has_no_shortcodes(client):
     r = client.get(f"{API}/shortcodes", headers=headers)
     assert r.status_code == 200
     assert r.json() == []
+
+
+# ── Audit logging of auth events (Phase 9) ─────────────────
+def test_failed_login_is_audited(client):
+    from sqlalchemy import select
+
+    from app.db.models.audit import AuditLog
+    from app.db.session import get_session_factory
+
+    _login(client, ANALYST, "definitely-wrong")
+    session = get_session_factory()()
+    try:
+        rows = session.scalars(
+            select(AuditLog).where(AuditLog.action == "login.failure")
+        ).all()
+        assert len(rows) >= 1
+    finally:
+        session.close()
+
+
+def test_successful_login_is_audited(client):
+    from sqlalchemy import select
+
+    from app.db.models.audit import AuditLog
+    from app.db.session import get_session_factory
+
+    _login(client, ADMIN)
+    session = get_session_factory()()
+    try:
+        rows = session.scalars(
+            select(AuditLog).where(AuditLog.action == "login.success")
+        ).all()
+        assert len(rows) >= 1
+    finally:
+        session.close()
