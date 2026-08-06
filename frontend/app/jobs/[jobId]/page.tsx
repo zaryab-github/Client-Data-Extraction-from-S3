@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import StatusBadge from "@/components/StatusBadge";
@@ -37,24 +37,24 @@ export default function JobStatusPage() {
   const [emails, setEmails] = useState<EmailDelivery[]>([]);
   const [emailMsg, setEmailMsg] = useState<string | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const lastLogIdRef = useRef(0);
+
+  const pullLogs = useCallback(async () => {
+    try {
+      const next = await getJobLogs(jobId, lastLogIdRef.current);
+      if (next.length) {
+        lastLogIdRef.current = next[next.length - 1].id;
+        setLogs((prev) => [...prev, ...next]);
+      }
+    } catch {
+      /* ignore transient log errors */
+    }
+  }, [jobId]);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    let lastLogId = 0;
-
-    const pullLogs = async () => {
-      try {
-        const next = await getJobLogs(jobId, lastLogId);
-        if (active && next.length) {
-          lastLogId = next[next.length - 1].id;
-          setLogs((prev) => [...prev, ...next]);
-        }
-      } catch {
-        /* ignore transient log errors */
-      }
-    };
 
     const poll = async () => {
       try {
@@ -77,7 +77,7 @@ export default function JobStatusPage() {
       active = false;
       if (timer) clearTimeout(timer);
     };
-  }, [user, jobId]);
+  }, [user, jobId, pullLogs]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,11 +108,20 @@ export default function JobStatusPage() {
     setEmailMsg(null);
     try {
       await emailReport(jobId, to);
-      setEmailMsg(`Queued email to ${to}. Status updates below.`);
-      // poll delivery status a few times
-      for (let i = 0; i < 5; i++) {
-        await new Promise((r) => setTimeout(r, 1500));
-        await loadEmails();
+      setEmailMsg(`Queued email to ${to}. Watch the live log below for progress.`);
+      // Poll logs + delivery status until the email finishes (or ~90s).
+      for (let i = 0; i < 45; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        await pullLogs();
+        let deliveries: EmailDelivery[] = [];
+        try {
+          deliveries = await getEmailDeliveries(jobId);
+        } catch {
+          /* ignore */
+        }
+        setEmails(deliveries);
+        const latest = deliveries[0];
+        if (latest && (latest.status === "SENT" || latest.status === "FAILED")) break;
       }
     } catch (e) {
       setEmailMsg(e instanceof Error ? e.message : "Failed to queue email.");

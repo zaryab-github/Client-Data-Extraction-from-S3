@@ -22,9 +22,12 @@ import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from collections.abc import Callable
+
 from app.config import settings
 from app.db.models.email_delivery import EmailDelivery, EmailMethod, EmailStatus
 from app.db.models.job import ExtractionJob, ReportMetadata
+from app.services import job_log_service
 
 logger = logging.getLogger(__name__)
 
@@ -109,9 +112,12 @@ def _send_via_provider(msg: EmailMessage) -> str:
 
 
 # ── Google Drive upload + share ────────────────────────────
-def _drive_upload_and_share(file_path: str, filename: str) -> str:
+def _drive_upload_and_share(
+    file_path: str, filename: str, on_progress: Callable[[int, int], None] | None = None
+) -> str:
     """Resumable-upload a file to Drive, share it (anyone-with-link reader), and
-    return a shareable view link. Streams in chunks (constant memory)."""
+    return a shareable view link. Streams in chunks (constant memory). `on_progress`
+    receives (uploaded_bytes, total_bytes) after each chunk."""
     token = _google_access_token()
     size = os.path.getsize(file_path)
 
@@ -151,9 +157,14 @@ def _drive_upload_and_share(file_path: str, filename: str) -> str:
             )
             if put.status_code in (200, 201):
                 result = put.json()
+                uploaded = size
+                if on_progress:
+                    on_progress(uploaded, size)
                 break
             if put.status_code == 308:  # resume incomplete → next chunk
                 uploaded = end + 1
+                if on_progress:
+                    on_progress(uploaded, size)
                 continue
             raise EmailError(f"Drive upload failed: {put.status_code} {put.text}")
 
@@ -226,8 +237,14 @@ def send_report_email(db: Session, delivery: EmailDelivery) -> EmailDelivery:
         f"ZIP size: {report.zip_size_bytes / 1048576:.2f} MB\n"
     )
 
+    def log(msg: str, level: str = "INFO") -> None:
+        job_log_service.append(delivery.job_id, msg, level)
+
     use_attachment = report.zip_size_bytes <= settings.EMAIL_MAX_ATTACHMENT_BYTES
     delivery.method = EmailMethod.ATTACHMENT if use_attachment else EmailMethod.LINK
+    size_mb = report.zip_size_bytes / 1048576
+    log(f"Emailing report to {delivery.recipient} "
+        f"({'attachment' if use_attachment else 'Google Drive link'}, {size_mb:.1f} MB)…")
 
     try:
         if use_attachment:
@@ -240,7 +257,19 @@ def send_report_email(db: Session, delivery: EmailDelivery) -> EmailDelivery:
                 attachment=data, attachment_name=report.zip_filename,
             )
         else:
-            link = _drive_upload_and_share(report.zip_path, report.zip_filename)
+            log(f"Uploading report to Google Drive ({size_mb:.1f} MB)…")
+            last_pct = {"v": -10}
+
+            def drive_progress(uploaded: int, total: int) -> None:
+                pct = int(uploaded * 100 / total) if total else 100
+                if pct >= last_pct["v"] + 10 or pct >= 100:
+                    last_pct["v"] = pct - (pct % 10)
+                    log(f"  Drive upload {pct}% ({uploaded / 1048576:.0f}/{total / 1048576:.0f} MB)")
+
+            link = _drive_upload_and_share(
+                report.zip_path, report.zip_filename, on_progress=drive_progress
+            )
+            log("Uploaded to Google Drive and shared (anyone with the link).")
             text = (
                 f"Your extraction report is ready. Download it from Google Drive:\n"
                 f"{link}\n\n{summary}"
@@ -257,10 +286,12 @@ def send_report_email(db: Session, delivery: EmailDelivery) -> EmailDelivery:
         delivery.provider_message_id = message_id or None
         delivery.sent_at = datetime.now(timezone.utc)
         delivery.error = None
+        log(f"Email SENT to {delivery.recipient}.")
         logger.info("Email SENT for %s to %s (%s)", delivery.job_id, delivery.recipient, delivery.method)
     except Exception as exc:  # noqa: BLE001
         delivery.status = EmailStatus.FAILED
         delivery.error = f"{type(exc).__name__}: {exc}"
+        log(f"Email FAILED: {type(exc).__name__}: {exc}", level="ERROR")
         logger.exception("Email FAILED for %s", delivery.job_id)
 
     db.commit()
